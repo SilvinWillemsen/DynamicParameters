@@ -54,13 +54,17 @@ for n = 1:lengthSound
     else
         E = E;
     end
+%     E = Einit; % just for now (energy)
     K = E / h;
     M = rho * h;
     h = k * sqrt(E / rho);
     N = floor(1/h);
     hSave(n) = h;
     hLocs = 1:-h:0;
-
+%     if length(hLocs) > N
+%         hLocs = hLocs(1:N);
+%     end
+%     h = 1/N;
     lambdaSq = E / rho * k^2 / h^2;
     range = 2:N;
 

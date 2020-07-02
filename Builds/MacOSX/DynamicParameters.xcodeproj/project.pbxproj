@@ -37,6 +37,10 @@
 			isa = PBXBuildFile;
 			fileRef = C2A3340B21AF8E7736D678ED;
 		};
+		4080A91AFEDF5E19567132D8 = {
+			isa = PBXBuildFile;
+			fileRef = 667ABB385A287100B5DEBB5A;
+		};
 		E6EE1128E8E388E07AAFB360 = {
 			isa = PBXBuildFile;
 			fileRef = 550EF116BC3398EC7E49A49D;
@@ -307,6 +311,13 @@
 			lastKnownFileType = wrapper.framework;
 			name = Accelerate.framework;
 			path = System/Library/Frameworks/Accelerate.framework;
+			sourceTree = SDKROOT;
+		};
+		667ABB385A287100B5DEBB5A = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreAudioKit.framework;
+			path = System/Library/Frameworks/CoreAudioKit.framework;
 			sourceTree = SDKROOT;
 		};
 		686B90596853BD678629A6F4 = {
@@ -604,6 +615,7 @@
 				FC429B0A7140F7F6EEC94F4B,
 				194208169125E95B3ED71467,
 				C2A3340B21AF8E7736D678ED,
+				667ABB385A287100B5DEBB5A,
 				550EF116BC3398EC7E49A49D,
 				78339B345243837869133B61,
 				0D2790B2D41005592E34D073,
@@ -642,6 +654,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_LINK_OBJC_RUNTIME = NO;
+				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)/build/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
@@ -684,6 +697,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_LINK_OBJC_RUNTIME = NO;
+				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)/build/$(CONFIGURATION)";
 				DEAD_CODE_STRIPPING = YES;
@@ -744,7 +758,8 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf";
+				CODE_SIGN_IDENTITY = "";
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = c11;
@@ -763,7 +778,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "DynamicParameters";
-				WARNING_CFLAGS = -Wreorder;
+				SDKROOT = macosx;
+				WARNING_CFLAGS = "-Wreorder";
 				ZERO_LINK = NO;
 			};
 			name = Debug;
@@ -790,7 +806,8 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf";
+				CODE_SIGN_IDENTITY = "";
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = c11;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
@@ -807,7 +824,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PRODUCT_NAME = "DynamicParameters";
-				WARNING_CFLAGS = -Wreorder;
+				SDKROOT = macosx;
+				WARNING_CFLAGS = "-Wreorder";
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -878,6 +896,7 @@
 				4AC82D7EC607EC545D0EA0F8,
 				A00EDFA8EBDF849B39061648,
 				2BAA67B11952FF94268815F4,
+				4080A91AFEDF5E19567132D8,
 				E6EE1128E8E388E07AAFB360,
 				8D1B8AF4F193702FCCD95798,
 				06A6A0C5BBD57271C720E4E4,
@@ -906,13 +925,14 @@
 		1040D79FB6609A5F57721728 = {
 			isa = PBXProject;
 			buildConfigurationList = D5D056BFEBE5B5D6003ACBB7;
-			attributes = { LastUpgradeCheck = 0930; ORGANIZATIONNAME = ""; TargetAttributes = { A12C6190F2FE68D8908424F9 = { SystemCapabilities = {com.apple.ApplicationGroups.iOS = { enabled = 0; }; com.apple.InAppPurchase = { enabled = 0; }; com.apple.InterAppAudio = { enabled = 0; }; com.apple.Push = { enabled = 0; }; com.apple.Sandbox = { enabled = 0; }; }; }; }; };
+			attributes = { LastUpgradeCheck = 1100; ORGANIZATIONNAME = ""; TargetAttributes = { A12C6190F2FE68D8908424F9 = { SystemCapabilities = {com.apple.ApplicationGroups.iOS = { enabled = 0; }; com.apple.InAppPurchase = { enabled = 0; }; com.apple.InterAppAudio = { enabled = 0; }; com.apple.Push = { enabled = 0; }; com.apple.Sandbox = { enabled = 0; }; com.apple.HardenedRuntime = { enabled = 0; }; }; }; }; };
 			compatibilityVersion = "Xcode 3.2";
 			hasScannedForEncodings = 0;
 			mainGroup = 4CD44EF329BFD1C1C5F241B5;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (A12C6190F2FE68D8908424F9);
+			knownRegions = (en, Base);
 		};
 	};
 	rootObject = 1040D79FB6609A5F57721728;

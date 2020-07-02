@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="YVPCEt" name="DynamicParameters" projectType="guiapp" jucerVersion="5.4.1">
+<JUCERPROJECT id="YVPCEt" name="DynamicParameters" projectType="guiapp" jucerVersion="5.4.7">
   <MAINGROUP id="xINZvC" name="DynamicParameters">
     <GROUP id="{13E0B080-8FE7-3FF2-07F6-4FC2F6DA5B6E}" name="Source">
       <FILE id="f0YPq5" name="DataVisual.cpp" compile="1" resource="0" file="Source/DataVisual.cpp"/>
