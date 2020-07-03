@@ -155,6 +155,14 @@ for n = 1:lengthSound
         scatter(0, 0 + ii, 180, 'k', 'x')
         xoffset = h/15;
         yoffset = 0.15;
+        if ii == 2
+            test = 1;
+            plot([0, h - hLocs(end)], [ii+0.2, ii+0.2], 'r', 'Linewidth', test)
+            plot([0, 0], [ii+0.1, ii+0.3], 'r', 'Linewidth', test)
+            plot([h-hLocs(end), h-hLocs(end)], [ii+0.1, ii+0.3], 'r', 'Linewidth', test)
+            text(0.5 * (h - hLocs(end)) - xoffset, ii + 0.4, '$h_{\textrm{\fontsize{7}{0}\selectfont I}}$', 'interpreter', 'latex', 'Fontsize', 20, 'Color', 'r')
+
+        end
         if ii ~= 5
             text(hLocs(end) + xoffset, u(1) - yoffset + ii, '$u_0$', 'interpreter', 'latex', 'Fontsize', 26)
             text(hLocs(end) + xoffset - h, uVirtual-yoffset + ii, '$u_{-1}$', 'interpreter', 'latex', 'Fontsize', 26)
@@ -208,7 +216,9 @@ for n = 1:lengthSound
 %         drawnow;
     end
     xticks([0])
-    xticklabels({'Boundary'})
+    xticklabels({'$u_{\textrm{\fontsize{7}{0}\selectfont B}}$'})
+%     gca
+    set(gca, 'TickLabelInterpreter', 'latex')
     yticks([1:5])
     yticklabels({'','','','',''})
 
