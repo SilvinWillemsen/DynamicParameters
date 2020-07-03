@@ -8,7 +8,8 @@ k = 1/fs;
 
 lengthSound = fs*2;
 
-Ninit = 30.75;
+
+Ninit = 30.5;
 N = Ninit;
 if N - floor(N) == 0.5
     virtualFlag = true;
@@ -38,9 +39,6 @@ hannRange = floor(N*loc - N/12):floor(N*loc + N/12);
 % u(floor(N/2)) = 1;
 u(hannRange) = hann(length(hannRange));
 % u(floor(N/2)) = 1;
-% u(floor(N/2) - 1) = 0.1;
-% u(floor(N/2) + 1) = 0.1;
-
 uPrev = u;
 
 origHLocs = 0:h:1-h;
@@ -51,7 +49,7 @@ T = Tinit;
 
 totEnergy1 = [];
 kinEnergySave = zeros(N+1, 100);
-hLocs
+
 kinEnergy = zeros(lengthSound, 1);
 potEnergy = zeros(lengthSound, 1);
 potEnergyBound = zeros(lengthSound, 1);
@@ -78,9 +76,8 @@ for n = 1:lengthSound
     hSave(n) = h;
     hLocs = 1:-h:0;
     
-    lambdaSq = c^2 * k^2 / h^2;
+    lambdaSq =  c^2 * k^2 / h^2;
     range = 2:N;
-    potEnergyRange = 1:N;
 
     if abs(N - NPrev) > 1
         disp('too fast')
@@ -97,19 +94,17 @@ for n = 1:lengthSound
         uPrev = uPrev(2:end);
     end
       
-    if interpolationType == "linear"
-        if hLocs(end) >= hSave(n)/2
-            alpha = (hSave(n) - hLocs(end)) / hLocs(end);
-            uVirtual = -alpha * u(1);
-            flag = true;
-        else
-            alpha = (h - 2 * hLocs(end)) / h;
-%             alpha = (2*hLocs(end)) / hSave(n);
-            uVirtual = -((1-alpha) * u(1) + alpha * u(2));
-        end
-    elseif interpolationType == "cubic"
-        res = interp1([0, hLocs(end:-1:end-2)],[0, u(1:3)'], -(hLocs(end)-h), 'spline');
-        uVirtual = -res;
+    if hLocs(end) >= hSave(n)/2
+        alpha = (hSave(n) - hLocs(end)) / hLocs(end);
+        uVirtual = -alpha * u(1);
+        flag = true;
+    else
+        alpha = (2*hLocs(end)) / hSave(n);
+        uVirtual = -(alpha * u(1) + (1-alpha) * u(2));
+    end
+    
+    if virtualFlag
+        uVirtual = -u(1);
     end
     
     %% full string
@@ -139,14 +134,24 @@ for n = 1:lengthSound
     rOCTotEnergyTest(n) = rOCkinEnergy(n) + rOCpotTest(n) + rOCpotTestBound(n);
     totEnergy(n) = kinEnergy(n) + potEnergy(n) + potEnergyBound(n) + potEnergyBound2(n);
 
+%     kinEnergy(n) = rho * A / 2 * h * sum((1/k * (u - uPrev)).^2);
+    potEnergy(n) = T / (2 * h) * sum((u(2:N+1) - u(1:N)) .* (uPrev(2:N+1) - uPrev(1:N)));
+    potEnergyBound(n) = 2 * T / (2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0));
     scaling = ones(N+1, 1);
     scaling(1) = 0.5;
     
-%     totEnergy(n) = kinEnergy(n) + kinEnergyBound(n) + potEnergy(n) + potEnergyBound(n);
-%     max(kinEnergy(1:n) + potEnergy(1:n) - (kinEnergy(1) + potEnergy(1))) / max(-potEnergyBound(1:n));
+%     rOCpotRange = 2:N;
+%     rOCkinEnergy(n) = h * rho * A / (2 * k^3) * sum(scaling .* (uNext - 2 * u + uPrev) .* (uNext - uPrev));
+%     rOCpotEnergy(n) = h * T / (2*k*h^2) * sum((u(rOCpotRange+1) - 2 * u(rOCpotRange) + u(rOCpotRange-1))...
+%         .* (uNext(rOCpotRange) - uPrev(rOCpotRange)));
+%     boundaryEnergy(n) = -T / (4 * k * h)  * (uNext(1) - uPrev(1)) * (u(1) + u(2));
+%     
+    totEnergy(n) = kinEnergy(n) + kinEnergyBound(n) + potEnergy(n) + potEnergyBound(n);
+    
+%     totROCEnergy(n) = rOCkinEnergy(n) - rOCpotEnergy(n) - boundaryEnergy(n);
     
     if mod(n, drawSpeed) == 0
-        stopIdx = 21;
+
         subplot(3,1,1)
 %         hold off;
         hold off;
@@ -157,7 +162,7 @@ for n = 1:lengthSound
         ylim([-.6,.6])
         set(gca, 'Linewidth', 1)
         
-        if n == stopIdx
+        if n == 13
             disp("wait")
         end
 %         scatter([hLocs(end)-hSave(n), hSave(n)-hLocs(end)], [uVirtual, -uVirtual], 400, 'k', 'o')
@@ -168,29 +173,32 @@ for n = 1:lengthSound
         text(hLocs(end) + h/8 - h, uVirtual-0.05, '$u_{-1}$', 'interpreter', 'latex', 'Fontsize', 26)
         text(hLocs(end) + h + h/8, u(2)-0.05, '$u_1$', 'interpreter', 'latex', 'Fontsize', 26)
 
-        xlim([-1.5*h, 4*h])
+%         xlim([-1.5*h, 4*h])
         plot([hLocs(end) - hSave(n), 0], [uVirtual, 0], '--', 'Linewidth', 2, 'Color', 'b');
 
-        if n == stopIdx
+        if n == 13
             disp("wait")
         end
         
         plot([hLocs(end) - hSave(n), h-hLocs(end)], [uVirtual, -uVirtual], '--', 'Linewidth', 2, 'Color', 'r');
-
-%         pause(0.2)
+      
+        if n == 13
+            disp("wait")
+        end
+        pause(0.1)
         
         
 %         hold on;
 %         plot([flip(h1Locs)], u1Plot);
 %         scatter(origHLocs, zeros(length(origHLocs),1));
-        scatter(h-hLocs(end), -uVirtual, 18, 'r', 'o')
+%         scatter(h-hLocs(end), -uVirtual, 18, 'k', 'o')
 %         plot([hLocs(end) - hSave(n), h-hLocs(end)], [uVirtual, -uVirtual])
-% % %         xlim([-1.5*h, 4*h])
-% %         pause (0.25)
+% %         xlim([-1.5*h, 4*h])
+%         pause (0.25)
         subplot(3,1,2)
 %         plot(totEnergy(1:n) / totEnergy(1) - 1)
 %         hold off;
-%         plot(tot(1:n))
+%         plot(totROCEnergy(1:n))
 %         hold on;
 %         hold off;
 %         plot(rOCkinEnergy(1:n))
@@ -204,16 +212,14 @@ for n = 1:lengthSound
 %         plot(boundaryEnergy(1:n));
 %         subplot(3,1,3)
 %         plot(rOCkinEnergy(1:n) - rOCpotEnergy(1:n))
-        if n == stopIdx
-            disp("wait")
-        end
         drawnow;
     end
-    uVirtualPrev = uVirtual;
+    
     uPrev = u;
     u = uNext;
     
-    out(n) = uNext(floor(N-10));
+
+    out(n) = uNext(floor(N - 10));
 end
 subplot(2,1,1)
 plot(out)

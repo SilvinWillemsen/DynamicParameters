@@ -77,7 +77,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         for (auto violinString : violinStrings)
         {
             violinString->bow();
-            output = output + violinString->getOutput(0.8) * (violinString->getModel() == exponential ? 800 : 800); // comment everything after "getOutput(0.25)" out when debugging on a sample-by-sample basis (vs. matlab)
+            output = output + violinString->getOutput(0.8); // * (violinString->getModel() == exponential ? 800 : 800); // comment everything after "getOutput(0.25)" out when debugging on a sample-by-sample basis (vs. matlab)
             violinString->analyseEnergy();
             violinString->updateUVectors();
         }
@@ -88,8 +88,8 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             violinStrings[0]->updateGrid (waveSpeedVal);
             updateGridFlag = false;
         }
-        channelData1[i] = clip(output);
-        channelData2[i] = clip(output);
+//        channelData1[i] = clip(output);
+//        channelData2[i] = clip(output);
 //        std::cout <<"Buffer sample " << i << ": " <<  output << std::endl;
     }
 //    std::cout << violinStrings[0]->getzBA() << std::endl;
