@@ -2,13 +2,13 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 1000;
+drawSpeed = 1;
 fs = 44100;
 k = 1/fs;
 
 lengthSound = fs;
 
-Ninit = 31;
+Ninit = 31.5;
 N = Ninit;
 if N - floor(N) == 0.5
     virtualFlag = true;
@@ -43,7 +43,7 @@ uPrev = u;
 origHLocs = 0:h:1-h;
 
 flag = false;
-changeT = true;
+changeT = false;
 T = Tinit;
 
 totEnergy1 = [];
