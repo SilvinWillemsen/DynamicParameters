@@ -111,7 +111,7 @@ for n = 1:lengthSound
     hLocsLeft = (1:(length(u))) * h;
     hLocsRight = flip(1 - ((1:(length(w))) * h));
 
-    alf = 0.25;
+    alf = 0.5;
     I = zeros(1, length(u));
     I(floor(N/2)+1) = alf;
     I(floor(N/2)) = 1-alf;
@@ -127,8 +127,8 @@ for n = 1:lengthSound
     etaPrev = eta;
     eta = I * u - I * w;
 %     eta - etaNext
-    F = ((I * wNext - I * uNext) - etaPrev) / ((I * J + I * J) * k^2 + 2/omega0^2);        
-
+%     F = ((I * wNext - I * uNext) - etaPrev) / ((I * J + I * J) * k^2 + 2/omega0^2);        
+    F = (c^2 / h^2 * (I * Dxxw * w - I * Dxxu * u)) / (I * J + I * J);
 %     etaNext = (2 * eta - etaPrev - k^2 * omega0^2 / h * etaPrev + (I * uNext - I * wNext)) / (1 + k^2 * omega0^2/h);
 %     F = (-eta - etaPrev) / (2 * k^2 + 2/omega0^2);
 %     F = -omega0^2 * (etaNext + etaPrev) / 2;
@@ -141,11 +141,6 @@ for n = 1:lengthSound
     etaNext = -2 / omega0^2 - etaPrev;
     etaSave(n) = etaNext;
     trueEtaSave(n) - etaSave(n)
-%     solut = [2/h, 2 * Iu1 * Ju2; 2 * Iw2 * Jw1, 2/h] \ [lambdaSq * (Iw1 * Dxxw * w - Iu1 * Dxxu * u); lambdaSq * (Iw2 * Dxxw * w - Iu2 * Dxxu * u)] ;
-%     F1 = h/2 * lambdaSq * (sum(Iw1 * Dxxw * w) - sum(Iu1 * Dxxu * u));
-%     F2 = h/2 * lambdaSq * (sum(Iw2 * Dxxw * w) - sum(Iu2 * Dxxu * u));
-%     uNext = uNext + (Ju1 * solut(1) + Ju2 * solut(2));
-%     wNext = wNext - (Jw1 * solut(1) + Jw2 * solut(2));
     scalingU = ones(length(u),1);
 %     scalingU(end) = 0.5;
     kinEnergyU(n) = 1/2 * h * sum(scalingU .* (1/k * (u - uPrev)).^2);
