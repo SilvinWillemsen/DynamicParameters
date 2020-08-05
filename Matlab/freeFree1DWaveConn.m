@@ -2,12 +2,12 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 1;
+drawSpeed = 10000;
 fs = 44100;
 k = 1/fs;
 lengthSound = fs;
 
-Ninit = 30;
+Ninit = 31.5;
 N = Ninit;
 L = 1;
 h = 1/N;
@@ -58,31 +58,42 @@ omega0 = 10000;
 for n = 1:lengthSound
     NPrev = N;
     if changeC
-        c = cInit * (1-0.25*n/lengthSound);
+        c = cInit * (1-5*n/lengthSound);
     else
         c = c;
     end
     h = c*k;
+    Ninit = 1/h;
     N = floor(1/h);
     Nsave(n) = N;
     hSave(n) = h;
     hLocs = 1:-h:0;
     
     lambdaSq = c^2 * k^2 / h^2;
+    hLocsLeft = (1:(length(u))) * h;
+    hLocsRight = flip(1 - ((1:(length(w))) * h));
 
+%     alf = (Ninit - N) + 0.5 * (1-(Ninit - N));
+    alf = 1 - 0.5 * (hLocsLeft(end) - hLocsRight(1)) / h;
     if abs(N - NPrev) > 1
         disp('too fast')
     end
     if N > NPrev
         if mod(N,2) == 1
-            uNext = [uNext; wNext(1)];
-            u = [u; w(1)];
-            uPrev = [uPrev; wPrev(1)];
+            uNext = [uNext; ((1-alf) * wNext(1) + alf * wNext(2) - alf * uNext(end)) / (1-alf)];
+            u = [u; ((1-alf) * w(1) + alf * w(2) - alf * u(end)) / (1-alf)];
+            uPrev = [uPrev; ((1-alf) * wPrev(1) + alf * wPrev(2) - alf * uPrev(end)) / (1-alf)];
         else 
-            wNext = [uNext(end);wNext];
-            w = [u(end);w];
-            wPrev = [uPrev(end);wPrev];
+            wNext = [uNext(end - overlap + 1);wNext];
+            w = [u(end - overlap + 1);w];
+            wPrev = [uPrev(end - overlap + 1);wPrev];
         end
+        eu = ones(length(u), 1);
+        Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
+        Dxxu(end, end - 1) = 2;
+        ew = ones(length(w), 1);
+        Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
+        Dxxw(1, 2) = 2;
     end
     
     if N < NPrev
@@ -95,6 +106,12 @@ for n = 1:lengthSound
             w = w(2:end);
             wPrev = wPrev(2:end);
         end
+        eu = ones(length(u), 1);
+        Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
+        Dxxu(end, end - 1) = 2;
+        ew = ones(length(w), 1);
+        Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
+        Dxxw(1, 2) = 2;
     end
 
     
@@ -114,39 +131,17 @@ for n = 1:lengthSound
     hLocsRight = flip(1 - ((1:(length(w))) * h));
 
 %     alf = (hLocsRight(1 + overlap) - hLocsLeft(end - overlap)) / h;
-    alf = (Ninit - N) + 0.5 * (1-(Ninit - N));
-    alf = 0.25;
+%     alf = 0.25;
     Iu = zeros(1, length(u));
     Iu(end) = alf;
     Iu(end-1) = 1-alf;
     Ju = Iu' * 1/h;
-    alf = 1;
+%     alf = 1;
     Iw = zeros(1, length(w));
     Iw(2) = 1-alf;
     Iw(1) = alf;
     Jw = Iw' * 1/h;
-%     Iu1 = zeros(1, length(u));
-%     Iu1(end-1) = (1-alf);
-%     Iu1(end) = alf;
-%     
-%     Ju1 = Iu1' * 1/h;
-%     
-%     Iw1 = zeros(1, length(w));
-%     Iw1(1) = 1;
-%     
-%     Jw1 = Iw1' * 1/h;
-% 
-%     Iu2 = zeros(1, length(u));
-%     Iu2(end) = 1;
-%     
-%     Ju2 = Iu2' * 1/h;
-% 
-%     
-%     Iw2 = zeros(1, length(w));
-%     Iw2(1) = 1-alf;
-%     Iw2(2) = alf;
-%     
-%     Jw2 = Iw2' * 1/h;
+
         
     uLeftLocs = ((length(uNext) - overlap + 1) : length(uNext))';
     uRightLocs = (1:overlap)';
@@ -156,15 +151,9 @@ for n = 1:lengthSound
     
     %% left half string
     uNext = 2 * u + lambdaSq * Dxxu * u - uPrev;
-%     uNext(leftRange) = (2-2*lambdaSq) * u(leftRange) + lambdaSq * (u(leftRange+1) + u(leftRange-1)) - uPrev(leftRange);
-%     uNext(end) = (2-2*lambdaSq) * u(end) + lambdaSq * (2 * u(end-1)) - uPrev(end);
-%     uLeftNext(uLeftLocs) = (2-2*lambdaSq) * uLeft(uLeftLocs) + lambdaSq * (uLeft(uLeftLocs - 1) + uRightPoints) - uLeftPrev(uLeftLocs);
     
     %% right half string
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
-%     wNext(rightRange) = (2-2*lambdaSq) * w(rightRange) + lambdaSq * (w(rightRange+1) + w(rightRange-1)) - wPrev(rightRange);
-%     wNext(1) = (2-2*lambdaSq) * w(1) + lambdaSq * (2 * w(2)) - wPrev(1);
-%     uRightNext(uRightLocs) = (2-2*lambdaSq) * uRight(uRightLocs) + lambdaSq * (uRight(uRightLocs+1) + uLeftPoints) - uRightPrev(uRightLocs);
 
     %% connection
 %     etaPrev = eta;
@@ -178,8 +167,8 @@ for n = 1:lengthSound
     uNext = uNext + k^2 * Ju * F;
     wNext = wNext - k^2 * Jw * F;
     
-    eta = Iu * u - Iw * w
-
+%     eta = Iu * u - Iw * w
+    
 %     trueEtaSave(n) = (Iu * uNext - Iw * wNext);
 %     etaSave(n) = etaNext;
 %     solut = [2/h, 2 * Iu1 * Ju2; 2 * Iw2 * Jw1, 2/h] \ [lambdaSq * (Iw1 * Dxxw * w - Iu1 * Dxxu * u); lambdaSq * (Iw2 * Dxxw * w - Iu2 * Dxxu * u)] ;
@@ -211,13 +200,16 @@ for n = 1:lengthSound
     totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
     if mod(n, drawSpeed) == 0
 
-        subplot(3,1,1)
+%         subplot(3,1,1)
         hold off;
         plot(hLocsLeft * N, u, 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') 
 %         plot([hLocsLeft, hLocsLeft(end) + h] * N, [0;0;0;0;0;0;-5.55111512312578e-17;-0.146446609406726;-0.353553390593274;-0.500000000000000;-0.500000000000000;-0.353553390593274;-0.146446609406726;0;0;0;0], 'LineWidth' , 2, 'Marker', '.', 'MarkerSize', 20)
         hold on;
         plot(hLocsRight * N, w, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
 %         plot(hLocsRight * N, [0;5.55111512312578e-17;0;0;0.146446609406726;0.353553390593274;0.500000000000000;0.500000000000000;0.353553390593274;0.146446609406726;0;0;0;0;0;0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
+        if n == 10
+            disp("wait");
+        end
         ylim([-1, 1])
         grid on;
 %         hold on;
@@ -232,19 +224,19 @@ for n = 1:lengthSound
             disp("wait")
         end
         
-        subplot(3,1,2)
-        hold off
-        plot(totEnergyU(1:n) + totEnergyW(1:n) - (totEnergyU(1) + totEnergyW(1)))     
-%         hold on
-%         plot(connEnergy(1:n))
-%         hold off;
-        
-%         hold off;
-%         plot(totEnergyU(1:n) / totEnergy(1) - 1);
-%         hold on;
-%         plot(connEnergy(1:n) / 2)
-        subplot(3,1,3);
-        plot(totEnergy(1:n) / totEnergy(1) - 1);
+%         subplot(3,1,2)
+%         hold off
+%         plot(totEnergyU(1:n) + totEnergyW(1:n) - (totEnergyU(1) + totEnergyW(1)))     
+% %         hold on
+% %         plot(connEnergy(1:n))
+% %         hold off;
+%         
+% %         hold off;
+% %         plot(totEnergyU(1:n) / totEnergy(1) - 1);
+% %         hold on;
+% %         plot(connEnergy(1:n) / 2)
+%         subplot(3,1,3);
+%         plot(totEnergy(1:n) / totEnergy(1) - 1);
 
         drawnow;
     end
