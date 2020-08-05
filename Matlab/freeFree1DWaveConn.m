@@ -20,8 +20,10 @@ N = floor(1/h);
 h = 1/N;
 lambdaSq = (c*k/h)^2
 
-uNext = zeros(N-1, 1);
-u = zeros(N-1, 1);
+overlap = 2;
+
+uNext = zeros(floor(N/2) + ceil((overlap + 1) / 2) - 1, 1);
+u = zeros(floor(N/2) + ceil((overlap + 1) / 2) - 1, 1);
 
 if mod(N,2) == 1
     uNext = [uNext; 0];
@@ -31,10 +33,10 @@ end
 u(floor(N/5)-4:floor(N/5)+4) = hann(9);
 uPrev = u;
 
-wNext = zeros(N - 1, 1);
-w = zeros(N - 1, 1);
+wNext = zeros(floor(N/2) + floor((overlap + 1) / 2) - 1, 1);
+w = zeros(floor(N/2) + floor((overlap + 1) / 2) - 1, 1);
 % u3(floor(N/4)-5:floor(N/4)+5) = hann(11);
-% w(floor(N/5)-4:floor(N/5)+4) = hann(9);
+% w(floor(2*N/5)-4:floor(2*N/5)+4) = hann(9);
 
 wPrev = w;
 
@@ -42,17 +44,17 @@ origHLocs = 0:h:1;
 
 eu = ones(length(u), 1);
 Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
-% Dxxu(end, end - 1) = 2;
+Dxxu(end, end - 1) = 2;
 ew = ones(length(w), 1);
 Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
-% Dxxw(end, end - 1) = 2;
+Dxxw(1, 2) = 2;
 
 flag = false;
 changeC = false;
 
 eta = 0;
 etaNext = 0;
-omega0 = 1000000;
+omega0 = 10000;
 for n = 1:lengthSound
     NPrev = N;
     if changeC
@@ -111,73 +113,110 @@ for n = 1:lengthSound
     hLocsLeft = (1:(length(u))) * h;
     hLocsRight = flip(1 - ((1:(length(w))) * h));
 
-    alf = 0.5;
-    I = zeros(1, length(u));
-    I(floor(N/2)+1) = alf;
-    I(floor(N/2)) = 1-alf;
-    J = I' * 1/h;
+%     alf = (hLocsRight(1 + overlap) - hLocsLeft(end - overlap)) / h;
+    alf = (Ninit - N) + 0.5 * (1-(Ninit - N));
+    alf = 0.25;
+    Iu = zeros(1, length(u));
+    Iu(end) = alf;
+    Iu(end-1) = 1-alf;
+    Ju = Iu' * 1/h;
+    alf = 1;
+    Iw = zeros(1, length(w));
+    Iw(2) = 1-alf;
+    Iw(1) = alf;
+    Jw = Iw' * 1/h;
+%     Iu1 = zeros(1, length(u));
+%     Iu1(end-1) = (1-alf);
+%     Iu1(end) = alf;
+%     
+%     Ju1 = Iu1' * 1/h;
+%     
+%     Iw1 = zeros(1, length(w));
+%     Iw1(1) = 1;
+%     
+%     Jw1 = Iw1' * 1/h;
+% 
+%     Iu2 = zeros(1, length(u));
+%     Iu2(end) = 1;
+%     
+%     Ju2 = Iu2' * 1/h;
+% 
+%     
+%     Iw2 = zeros(1, length(w));
+%     Iw2(1) = 1-alf;
+%     Iw2(2) = alf;
+%     
+%     Jw2 = Iw2' * 1/h;
         
+    uLeftLocs = ((length(uNext) - overlap + 1) : length(uNext))';
+    uRightLocs = (1:overlap)';
+    
+    uLeftPoints = alf * u(uLeftLocs) + (1 - alf) * u(uLeftLocs - 1);
+    uRightPoints = alf * w(uRightLocs) + (1 - alf) * w(uRightLocs + 1);
+    
     %% left half string
     uNext = 2 * u + lambdaSq * Dxxu * u - uPrev;
+%     uNext(leftRange) = (2-2*lambdaSq) * u(leftRange) + lambdaSq * (u(leftRange+1) + u(leftRange-1)) - uPrev(leftRange);
+%     uNext(end) = (2-2*lambdaSq) * u(end) + lambdaSq * (2 * u(end-1)) - uPrev(end);
+%     uLeftNext(uLeftLocs) = (2-2*lambdaSq) * uLeft(uLeftLocs) + lambdaSq * (uLeft(uLeftLocs - 1) + uRightPoints) - uLeftPrev(uLeftLocs);
     
     %% right half string
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
+%     wNext(rightRange) = (2-2*lambdaSq) * w(rightRange) + lambdaSq * (w(rightRange+1) + w(rightRange-1)) - wPrev(rightRange);
+%     wNext(1) = (2-2*lambdaSq) * w(1) + lambdaSq * (2 * w(2)) - wPrev(1);
+%     uRightNext(uRightLocs) = (2-2*lambdaSq) * uRight(uRightLocs) + lambdaSq * (uRight(uRightLocs+1) + uLeftPoints) - uRightPrev(uRightLocs);
 
     %% connection
-    etaPrev = eta;
-    eta = I * u - I * w;
-%     eta - etaNext
-%     F = ((I * wNext - I * uNext) - etaPrev) / ((I * J + I * J) * k^2 + 2/omega0^2);        
-    F = (c^2 / h^2 * (I * Dxxw * w - I * Dxxu * u)) / (I * J + I * J);
-%     etaNext = (2 * eta - etaPrev - k^2 * omega0^2 / h * etaPrev + (I * uNext - I * wNext)) / (1 + k^2 * omega0^2/h);
-%     F = (-eta - etaPrev) / (2 * k^2 + 2/omega0^2);
+%     etaPrev = eta;
+%     eta = Iu * u - Iw * w;
+% %     eta - etaNext
+%     etaNext = (2 * eta - etaPrev - k^2 * omega0^2 / h * etaPrev + k^2 * (c^2 / h^2 * Iu * Dxxu * u - c^2 / h^2 * Iw * Dxxw * w)) / (1 + k^2 * omega0^2/h);
 %     F = -omega0^2 * (etaNext + etaPrev) / 2;
-%     Ftest = h * ((c^2  / h^2 * Iw * Dxxw * w - c^2  / h^2 * I * Dxxu * u) + 1/k^2 * (etaNext - 2 * eta + etaPrev)) / 2;
+%     Ftest = h * ((c^2  / h^2 * Iw * Dxxw * w - c^2  / h^2 * Iu * Dxxu * u) + 1/k^2 * (etaNext - 2 * eta + etaPrev)) / 2;
 %     F - Ftest
-%     F = h / 2 * c^2 / (h^2) * (Iw * Dxxw * w - I * Dxxu * u);
-    uNext = uNext + k^2 * J * F;
-    wNext = wNext - k^2 * J * F;
-    trueEtaSave(n) = (I * uNext - I * wNext);
-    etaNext = -2 / omega0^2 - etaPrev;
-    etaSave(n) = etaNext;
-    trueEtaSave(n) - etaSave(n)
+    F = c^2 / (h^2) * (Iw * Dxxw * w - Iu * Dxxu * u) / (Iu * Ju + Iw * Jw);
+    uNext = uNext + k^2 * Ju * F;
+    wNext = wNext - k^2 * Jw * F;
+    
+    eta = Iu * u - Iw * w
+
+%     trueEtaSave(n) = (Iu * uNext - Iw * wNext);
+%     etaSave(n) = etaNext;
+%     solut = [2/h, 2 * Iu1 * Ju2; 2 * Iw2 * Jw1, 2/h] \ [lambdaSq * (Iw1 * Dxxw * w - Iu1 * Dxxu * u); lambdaSq * (Iw2 * Dxxw * w - Iu2 * Dxxu * u)] ;
+%     F1 = h/2 * lambdaSq * (sum(Iw1 * Dxxw * w) - sum(Iu1 * Dxxu * u));
+%     F2 = h/2 * lambdaSq * (sum(Iw2 * Dxxw * w) - sum(Iu2 * Dxxu * u));
+%     uNext = uNext + (Ju1 * solut(1) + Ju2 * solut(2));
+%     wNext = wNext - (Jw1 * solut(1) + Jw2 * solut(2));
     scalingU = ones(length(u),1);
-%     scalingU(end) = 0.5;
+    scalingU(end) = 0.5;
     kinEnergyU(n) = 1/2 * h * sum(scalingU .* (1/k * (u - uPrev)).^2);
-    potEnergyU(n) = c^2/(2 * h) * sum((u(2:end) - u(1:end-1)) .* (uPrev(2:end) - uPrev(1:end-1)));
+    potEnergyU(n) = c^2/(2 * h) * sum((u(2:end-1) - u(1:end-2)) .* (uPrev(2:end-1) - uPrev(1:end-2)));
     potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0)); % left boundary
-    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((0 - u(end)) .* (0 - uPrev(end))); % right boundary
+    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(end-1) - u(end)) .* (uPrev(end-1) - uPrev(end))); % right boundary
 
-%     potEnergyBoundU(n) = c^2/(2 * h) * sum((u(end-1) - u(end)) .* (uPrev(end-1) - uPrev(end))); % right boundary
-
-    totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);% + potEnergyBoundU(n);
+    totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
     
     scalingW = ones(length(w),1);
-%     scalingW(end) = 0.5;
+    scalingW(1) = 0.5;
 
     kinEnergyW(n) = 1/2 * h * sum(scalingW .* (1/k * (w - wPrev)).^2);
-    potEnergyW(n) = c^2/(2 * h) * sum((w(2:end) - w(1:end-1)) .* (wPrev(2:end) - wPrev(1:end-1)));
-    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((w(1) - 0) .* (wPrev(1) - 0)); % left boundary
-    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % right boundary
+    potEnergyW(n) = c^2/(2 * h) * sum((w(3:end) - w(2:end-1)) .* (wPrev(3:end) - wPrev(2:end-1)));
+    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % left boundary
+    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((w(1) - w(2)) .* (wPrev(1) - wPrev(2))); % right boundary
 
-%     potEnergyBoundW(n) = c^2/(2 * h) * sum((w(end-1) - w(end)) .* (wPrev(end-1) - wPrev(end))); % right boundary
-
-%     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % left boundary
-%     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((w(1) - w(2)) .* (wPrev(1) - wPrev(2))); % right boundary
-
-    totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);% + potEnergyBoundW(n);
+    totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
     
-    connEnergy(n) = omega0^2 / 2 * 1/2 * (eta^2 + etaPrev^2);
-
-    totEnergy(n) = totEnergyU(n) + totEnergyW(n) + connEnergy(n);
+%     connEnergy(n) = omega0^2 / 2 * 1/2 * (eta^2 + etaPrev^2);
+    
+    totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
     if mod(n, drawSpeed) == 0
 
         subplot(3,1,1)
         hold off;
-        plot(u, 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') 
+        plot(hLocsLeft * N, u, 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') 
 %         plot([hLocsLeft, hLocsLeft(end) + h] * N, [0;0;0;0;0;0;-5.55111512312578e-17;-0.146446609406726;-0.353553390593274;-0.500000000000000;-0.500000000000000;-0.353553390593274;-0.146446609406726;0;0;0;0], 'LineWidth' , 2, 'Marker', '.', 'MarkerSize', 20)
         hold on;
-        plot(w, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
+        plot(hLocsRight * N, w, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
 %         plot(hLocsRight * N, [0;5.55111512312578e-17;0;0;0.146446609406726;0.353553390593274;0.500000000000000;0.500000000000000;0.353553390593274;0.146446609406726;0;0;0;0;0;0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
         ylim([-1, 1])
         grid on;
@@ -186,7 +225,7 @@ for n = 1:lengthSound
 %         scatter((hLocsLeft(end)+h) * N, 0, 'b', 'Marker', 'o', 'Linewidth', 2)
 %         scatter((hLocsRight(1)-h) * N, 0, 'r', 'filled')
 %         legend('$u$', '$w$', '$u_{M+1}$', '$w_{-1}$', 'interpreter', 'latex', 'Fontsize', 16)
-%         legend('$u$', '$w$', 'interpreter', 'latex', 'Fontsize', 16)
+        legend('$u$', '$w$', 'interpreter', 'latex', 'Fontsize', 16)
 
         set(gca, 'Fontsize', 16, 'Linewidth', 2)
         if n == 6
@@ -195,13 +234,9 @@ for n = 1:lengthSound
         
         subplot(3,1,2)
         hold off
-%         plot(potEnergyU(1:n) + kinEnergyU(1:n) + potEnergyW(1:n) + kinEnergyW(1:n) - (potEnergyU(1) + kinEnergyU(1) + potEnergyW(1) + kinEnergyW(1)));
-%         hold on;
-        plot(totEnergyU(1:n) + totEnergyW(1:n) - (totEnergyU(1) + totEnergyW(1)))   
-%         plot(potEnergyBoundW(1:n))     
-
-        hold on;
-        plot(connEnergy(1:n))
+        plot(totEnergyU(1:n) + totEnergyW(1:n) - (totEnergyU(1) + totEnergyW(1)))     
+%         hold on
+%         plot(connEnergy(1:n))
 %         hold off;
         
 %         hold off;
@@ -209,7 +244,7 @@ for n = 1:lengthSound
 %         hold on;
 %         plot(connEnergy(1:n) / 2)
         subplot(3,1,3);
-        plot(totEnergy(1:n) - totEnergy(1));
+        plot(totEnergy(1:n) / totEnergy(1) - 1);
 
         drawnow;
     end
