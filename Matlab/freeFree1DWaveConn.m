@@ -2,7 +2,7 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 1;
+drawSpeed = 16;
 fs = 44100;
 k = 1/fs;
 lengthSound = fs;
@@ -261,24 +261,39 @@ for n = 1:lengthSound
         plot(hLocsLeft * N, u, 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') 
 %         plot([hLocsLeft, hLocsLeft(end) + h] * N, [0;0;0;0;0;0;-5.55111512312578e-17;-0.146446609406726;-0.353553390593274;-0.500000000000000;-0.500000000000000;-0.353553390593274;-0.146446609406726;0;0;0;0], 'LineWidth' , 2, 'Marker', '.', 'MarkerSize', 20)
         hold on;
-        plot(hLocsRight * N, w, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
-        plot(z, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 7, 'Color', 'g')
-
-%         plot(hLocsRight * N, [0;5.55111512312578e-17;0;0;0.146446609406726;0.353553390593274;0.500000000000000;0.500000000000000;0.353553390593274;0.146446609406726;0;0;0;0;0;0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
-        if n == 10
-            disp("wait");
-        end
-        ylim([-1, 1])
+        wOffset = 0.05;
+        plot(hLocsRight * N, w + wOffset, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
+%         plot(z, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 7, 'Color', 'g')
+%         plot(hLocsRight * N, [0;5.55111512312578e-1   7;0;0;0.146446609406726;0.353553390593274;0.500000000000000;0.500000000000000;0.353553390593274;0.146446609406726;0;0;0;0;0;0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
+        xlim([12, 19])
+        ylim([-0.1, 0.1] + wOffset *0.5)
         grid on;
 %         hold on;
 %         scatter([hLocsLeft(end) + h, hLocsRight(1) - h], [uRightPoint, uLeftPoint]);
 %         scatter((hLocsLeft(end)+h) * N, 0, 'b', 'Marker', 'o', 'Linewidth', 2)
 %         scatter((hLocsRight(1)-h) * N, 0, 'r', 'filled')
 %         legend('$u$', '$w$', '$u_{M+1}$', '$w_{-1}$', 'interpreter', 'latex', 'Fontsize', 16)
-        legend('$u$', '$w$', 'interpreter', 'latex', 'Fontsize', 16)
+        textOffsetX = 0.1;
+
+        textOffsetY = 0.007;
+%         legend('$u$', '$w$', 'interpreter', 'latex', 'Fontsize', 16)
+        text(14 + textOffsetX, -textOffsetY, '$u_{M-2}^n$', 'interpreter', 'latex', 'Fontsize', 18)
+        text(15 + textOffsetX, -textOffsetY, '$u_{M-1}^n$', 'interpreter', 'latex', 'Fontsize', 18)
+        text(16 + textOffsetX, -textOffsetY, '$u_M^n$', 'interpreter', 'latex', 'Fontsize', 18)
+        text(15 + textOffsetX, wOffset + textOffsetY, '$w_0^n$', 'interpreter', 'latex', 'Fontsize', 18)
+        text(16 + textOffsetX, wOffset + textOffsetY, '$w_1^n$', 'interpreter', 'latex', 'Fontsize', 18)
+        text(17 + textOffsetX, wOffset + textOffsetY, '$w_2^n$', 'interpreter', 'latex', 'Fontsize', 18)
+        
+        plot([15, 15], [wOffset, 0], '--', 'Color', 'k', 'Linewidth', 2);
+        plot([16, 16], [wOffset, 0], '--', 'Color', 'k', 'Linewidth', 2);
+
+        text(15 + textOffsetX, wOffset*0.5, '$F_1$', 'interpreter', 'latex', 'Fontsize', 18)
+        text(16 + textOffsetX, wOffset*0.5, '$F_2$', 'interpreter', 'latex', 'Fontsize', 18)
+%         yticklabels([])
+        yticks([])
 
         set(gca, 'Fontsize', 16, 'Linewidth', 2)
-        if n == 6
+        if n == 16
             disp("wait")
         end
         
