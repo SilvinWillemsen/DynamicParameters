@@ -2,12 +2,12 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 10000;
+drawSpeed = 1;
 fs = 44100;
 k = 1/fs;
 lengthSound = fs;
 
-Ninit = 31.5;
+Ninit = 30.0;
 N = Ninit;
 L = 1;
 h = 1/N;
@@ -37,17 +37,34 @@ wNext = zeros(floor(N/2) + floor((overlap + 1) / 2) - 1, 1);
 w = zeros(floor(N/2) + floor((overlap + 1) / 2) - 1, 1);
 % u3(floor(N/4)-5:floor(N/4)+5) = hann(11);
 % w(floor(2*N/5)-4:floor(2*N/5)+4) = hann(9);
-
 wPrev = w;
+
+zNext = zeros(N, 1);
+z = zeros(N-1, 1);
+z(floor(N/5)-4:floor(N/5)+4) = hann(9);
+zPrev = z;
 
 origHLocs = 0:h:1;
 
 eu = ones(length(u), 1);
 Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
-Dxxu(end, end - 1) = 2;
+% Dxxu(end-2,end-1) = 0.5;
+Dxxu(end-1,end-2) = 2;
+% Dxxu(end,end-1) = 2;
+% Dxxu(end-1,end) = 1/3;
+% Dxxu(end,end) = -2;
+
+
 ew = ones(length(w), 1);
 Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
-Dxxw(1, 2) = 2;
+% Dxxw(3,2) = 0.5;
+Dxxw(2,3) = 2;
+% Dxxw(1,2) = 2;
+% Dxxw(2,1) = 1/3;
+% Dxxw(1,1) = -2;
+
+ez = ones(length(z), 1);
+Dxxz = spdiags([ez -2*ez ez], -1:1, length(z),length(z));
 
 flag = false;
 changeC = false;
@@ -55,6 +72,8 @@ changeC = false;
 eta = 0;
 etaNext = 0;
 omega0 = 10000;
+interpol = "linear";
+
 for n = 1:lengthSound
     NPrev = N;
     if changeC
@@ -73,16 +92,24 @@ for n = 1:lengthSound
     hLocsLeft = (1:(length(u))) * h;
     hLocsRight = flip(1 - ((1:(length(w))) * h));
 
-%     alf = (Ninit - N) + 0.5 * (1-(Ninit - N));
-    alf = 1 - 0.5 * (hLocsLeft(end) - hLocsRight(1)) / h;
+    alf = (Ninit - N) + 0.5 * (1-(Ninit - N));
+%     alf = 1 - 0.5 * (hLocsLeft(floor(N/2)) - hLocsRight(length(hLocsRight) - floor(N/2) + 1)) / h;
+  
     if abs(N - NPrev) > 1
         disp('too fast')
     end
     if N > NPrev
         if mod(N,2) == 1
-            uNext = [uNext; ((1-alf) * wNext(1) + alf * wNext(2) - alf * uNext(end)) / (1-alf)];
-            u = [u; ((1-alf) * w(1) + alf * w(2) - alf * u(end)) / (1-alf)];
-            uPrev = [uPrev; ((1-alf) * wPrev(1) + alf * wPrev(2) - alf * uPrev(end)) / (1-alf)];
+            if interpol == "linear"
+                uNext = [uNext; ((1-alf) * wNext(1) + alf * wNext(2) - alf * uNext(end)) / (1-alf)];
+                u = [u; ((1-alf) * w(1) + alf * w(2) - alf * u(end)) / (1-alf)];
+                uPrev = [uPrev; ((1-alf) * wPrev(1) + alf * wPrev(2) - alf * uPrev(end)) / (1-alf)];
+            else
+                uNext = [uNext; ((1-alf) * wNext(1) + alf * wNext(2) - alf * uNext(end)) / (1-alf)];
+                u = [u; ((1-alf) * w(1) + alf * w(2) - alf * u(end)) / (1-alf)];
+                uPrev = [uPrev; ((1-alf) * wPrev(1) + alf * wPrev(2) - alf * uPrev(end)) / (1-alf)];
+            
+            end
         else 
             wNext = [uNext(end - overlap + 1);wNext];
             w = [u(end - overlap + 1);w];
@@ -130,16 +157,24 @@ for n = 1:lengthSound
     hLocsLeft = (1:(length(u))) * h;
     hLocsRight = flip(1 - ((1:(length(w))) * h));
 
-%     alf = (hLocsRight(1 + overlap) - hLocsLeft(end - overlap)) / h;
-%     alf = 0.25;
+
+    cub = [alf * (alf - 1) * (alf - 2) / -6, ...
+            (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
+            alf * (alf + 1) * (alf - 2) / -2, ...
+            alf * (alf + 1) * (alf - 1) / 6];
+        
     Iu = zeros(1, length(u));
-    Iu(end) = alf;
-    Iu(end-1) = 1-alf;
-    Ju = Iu' * 1/h;
-%     alf = 1;
     Iw = zeros(1, length(w));
-    Iw(2) = 1-alf;
-    Iw(1) = alf;
+    if interpol == "linear"
+        Iu(end) = alf;
+        Iu(end-1) = 1-alf;
+        Iw(2) = 1-alf;
+        Iw(1) = alf;
+    else
+        Iu(end-3 : end) = cub;
+        Iw(1:4) = cub;
+    end
+    Ju = Iu' * 1/h;    
     Jw = Iw' * 1/h;
 
         
@@ -154,6 +189,10 @@ for n = 1:lengthSound
     
     %% right half string
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
+    
+    %% orig string
+    zNext = 2 * z + lambdaSq * Dxxz * z - zPrev;
+
 
     %% connection
 %     etaPrev = eta;
@@ -163,10 +202,27 @@ for n = 1:lengthSound
 %     F = -omega0^2 * (etaNext + etaPrev) / 2;
 %     Ftest = h * ((c^2  / h^2 * Iw * Dxxw * w - c^2  / h^2 * Iu * Dxxu * u) + 1/k^2 * (etaNext - 2 * eta + etaPrev)) / 2;
 %     F - Ftest
-    F = c^2 / (h^2) * (Iw * Dxxw * w - Iu * Dxxu * u) / (Iu * Ju + Iw * Jw);
-    uNext = uNext + k^2 * Ju * F;
-    wNext = wNext - k^2 * Jw * F;
     
+    Iu1 = zeros(1,length(u));
+    Iw1 = zeros(1,length(w));
+    Iu1(end-1) = 1;
+    Iw1(1) = 1;
+    
+    Iu2 = zeros(1,length(u));
+    Iw2 = zeros(1,length(w));
+    Iu2(end) = 1;
+    Iw2(2) = 1;
+    
+    F = c^2 / (h^2) * (Iw * Dxxw * w - Iu * Dxxu * u) / (Iu * Ju + Iw * Jw);
+    
+%     F1 = c^2 / (h^2) * (Iw1 * Dxxw * w - Iu1 * Dxxu * u) * h / 2;
+%     F2 = c^2 / (h^2) * (Iw2 * Dxxw * w - Iu2 * Dxxu * u) * h / 2;
+% 
+    F1 = h * c^2 / h^2 * (-u(end-2));
+    F2 = h * c^2 / h^2 * (w(3));
+
+    uNext = uNext + k^2 * (Iu1' * 1/h * F1 + Iu2' * 1/h * F2);
+    wNext = wNext - k^2 * (Iw1' * 1/h * F1 + Iw2' * 1/h * F2);
 %     eta = Iu * u - Iw * w
     
 %     trueEtaSave(n) = (Iu * uNext - Iw * wNext);
@@ -206,6 +262,8 @@ for n = 1:lengthSound
 %         plot([hLocsLeft, hLocsLeft(end) + h] * N, [0;0;0;0;0;0;-5.55111512312578e-17;-0.146446609406726;-0.353553390593274;-0.500000000000000;-0.500000000000000;-0.353553390593274;-0.146446609406726;0;0;0;0], 'LineWidth' , 2, 'Marker', '.', 'MarkerSize', 20)
         hold on;
         plot(hLocsRight * N, w, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
+        plot(z, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 7, 'Color', 'g')
+
 %         plot(hLocsRight * N, [0;5.55111512312578e-17;0;0;0.146446609406726;0.353553390593274;0.500000000000000;0.500000000000000;0.353553390593274;0.146446609406726;0;0;0;0;0;0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
         if n == 10
             disp("wait");
@@ -245,6 +303,9 @@ for n = 1:lengthSound
     
     wPrev = w;
     w = wNext;
+    
+    zPrev = z;
+    z = zNext;
     
     outFree(n) = wNext(end - 10);
 end

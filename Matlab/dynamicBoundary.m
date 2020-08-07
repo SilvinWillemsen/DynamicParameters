@@ -9,7 +9,7 @@ k = 1/fs;
 lengthSound = fs*2;
 
 % calculate wavespeed from number of points
-Ninit = 30.5;
+Ninit = 31.0;
 N = Ninit;
 
 h = 1/N;
@@ -56,7 +56,7 @@ totEnergy = zeros(lengthSound, 1);
 interpolationType = "linear";
 uVirtualPrev = 0;
 potEnergyRange = 1:N;
-changeT = true;
+changeT = false;
 L = 1;
 for n = 1:lengthSound
     NPrev = N;
@@ -71,7 +71,7 @@ for n = 1:lengthSound
     c = sqrt(T / (rho * A));
     h = c * k;
     
-    N = floor(L/h);
+    N = round(10000 * L/h) / 10000;
     
     hSave(n) = h;
     hLocs = L:-h:0;
@@ -221,6 +221,6 @@ subplot(2,1,1)
 % plot(out)
 
 outfft = fft(out);
-semilogy([0:lengthSound-1]'*fs/lengthSound, abs(outfft), 'r');
+plot([0:lengthSound-1]'*fs/lengthSound, abs(outfft), 'r');
 xlim([0 3*c/L])
 c/2
