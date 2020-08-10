@@ -2,7 +2,7 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 16;
+drawSpeed = 100;
 fs = 44100;
 k = 1/fs;
 lengthSound = fs;
@@ -194,15 +194,7 @@ for n = 1:lengthSound
     zNext = 2 * z + lambdaSq * Dxxz * z - zPrev;
 
 
-    %% connection
-%     etaPrev = eta;
-%     eta = Iu * u - Iw * w;
-% %     eta - etaNext
-%     etaNext = (2 * eta - etaPrev - k^2 * omega0^2 / h * etaPrev + k^2 * (c^2 / h^2 * Iu * Dxxu * u - c^2 / h^2 * Iw * Dxxw * w)) / (1 + k^2 * omega0^2/h);
-%     F = -omega0^2 * (etaNext + etaPrev) / 2;
-%     Ftest = h * ((c^2  / h^2 * Iw * Dxxw * w - c^2  / h^2 * Iu * Dxxu * u) + 1/k^2 * (etaNext - 2 * eta + etaPrev)) / 2;
-%     F - Ftest
-    
+    %% connection  
     Iu1 = zeros(1,length(u));
     Iw1 = zeros(1,length(w));
     Iu1(end-1) = 1;
@@ -213,91 +205,76 @@ for n = 1:lengthSound
     Iu2(end) = 1;
     Iw2(2) = 1;
     
-    F = c^2 / (h^2) * (Iw * Dxxw * w - Iu * Dxxu * u) / (Iu * Ju + Iw * Jw);
-    
-%     F1 = c^2 / (h^2) * (Iw1 * Dxxw * w - Iu1 * Dxxu * u) * h / 2;
-%     F2 = c^2 / (h^2) * (Iw2 * Dxxw * w - Iu2 * Dxxu * u) * h / 2;
-% 
     F1 = h * c^2 / h^2 * (-u(end-2));
     F2 = h * c^2 / h^2 * (w(3));
 
     uNext = uNext + k^2 * (Iu1' * 1/h * F1 + Iu2' * 1/h * F2);
     wNext = wNext - k^2 * (Iw1' * 1/h * F1 + Iw2' * 1/h * F2);
-%     eta = Iu * u - Iw * w
-    
-%     trueEtaSave(n) = (Iu * uNext - Iw * wNext);
-%     etaSave(n) = etaNext;
-%     solut = [2/h, 2 * Iu1 * Ju2; 2 * Iw2 * Jw1, 2/h] \ [lambdaSq * (Iw1 * Dxxw * w - Iu1 * Dxxu * u); lambdaSq * (Iw2 * Dxxw * w - Iu2 * Dxxu * u)] ;
-%     F1 = h/2 * lambdaSq * (sum(Iw1 * Dxxw * w) - sum(Iu1 * Dxxu * u));
-%     F2 = h/2 * lambdaSq * (sum(Iw2 * Dxxw * w) - sum(Iu2 * Dxxu * u));
-%     uNext = uNext + (Ju1 * solut(1) + Ju2 * solut(2));
-%     wNext = wNext - (Jw1 * solut(1) + Jw2 * solut(2));
+
     scalingU = ones(length(u),1);
-    scalingU(end) = 0.5;
-    kinEnergyU(n) = 1/2 * h * sum(scalingU .* (1/k * (u - uPrev)).^2);
+    scalingU(end-1:end) = 0.5;
+    kinEnergyU(n) = 1/2 * h * sum (scalingU .* (1/k * (u - uPrev)).^2);
     potEnergyU(n) = c^2/(2 * h) * sum((u(2:end-1) - u(1:end-2)) .* (uPrev(2:end-1) - uPrev(1:end-2)));
     potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0)); % left boundary
-    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(end-1) - u(end)) .* (uPrev(end-1) - uPrev(end))); % right boundary
+    potEnergyU(n) = potEnergyU(n) + c^2/(4 * h) * sum((u(end) - u(end-1)) .* (uPrev(end) - uPrev(end-1))); % right boundary
 
     totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
     
     scalingW = ones(length(w),1);
-    scalingW(1) = 0.5;
+    scalingW(1:2) = 0.5;
 
     kinEnergyW(n) = 1/2 * h * sum(scalingW .* (1/k * (w - wPrev)).^2);
     potEnergyW(n) = c^2/(2 * h) * sum((w(3:end) - w(2:end-1)) .* (wPrev(3:end) - wPrev(2:end-1)));
     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % left boundary
-    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((w(1) - w(2)) .* (wPrev(1) - wPrev(2))); % right boundary
+    potEnergyW(n) = potEnergyW(n) + c^2/(4 * h) * sum((w(2) - w(1)) .* (wPrev(2) - wPrev(1))); % right boundary
 
     totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
-    
-%     connEnergy(n) = omega0^2 / 2 * 1/2 * (eta^2 + etaPrev^2);
-    
+        
     totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
     if mod(n, drawSpeed) == 0
 
-%         subplot(3,1,1)
+        subplot(2,1,1)
         hold off;
         plot(hLocsLeft * N, u, 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') 
 %         plot([hLocsLeft, hLocsLeft(end) + h] * N, [0;0;0;0;0;0;-5.55111512312578e-17;-0.146446609406726;-0.353553390593274;-0.500000000000000;-0.500000000000000;-0.353553390593274;-0.146446609406726;0;0;0;0], 'LineWidth' , 2, 'Marker', '.', 'MarkerSize', 20)
         hold on;
-        wOffset = 0.05;
+        wOffset = 0.00;
         plot(hLocsRight * N, w + wOffset, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
 %         plot(z, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 7, 'Color', 'g')
 %         plot(hLocsRight * N, [0;5.55111512312578e-1   7;0;0;0.146446609406726;0.353553390593274;0.500000000000000;0.500000000000000;0.353553390593274;0.146446609406726;0;0;0;0;0;0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
-        xlim([12, 19])
-        ylim([-0.1, 0.1] + wOffset *0.5)
+        ylim([-0.6, 0.6])
         grid on;
-%         hold on;
-%         scatter([hLocsLeft(end) + h, hLocsRight(1) - h], [uRightPoint, uLeftPoint]);
-%         scatter((hLocsLeft(end)+h) * N, 0, 'b', 'Marker', 'o', 'Linewidth', 2)
-%         scatter((hLocsRight(1)-h) * N, 0, 'r', 'filled')
-%         legend('$u$', '$w$', '$u_{M+1}$', '$w_{-1}$', 'interpreter', 'latex', 'Fontsize', 16)
-        textOffsetX = 0.1;
-
-        textOffsetY = 0.007;
-%         legend('$u$', '$w$', 'interpreter', 'latex', 'Fontsize', 16)
-        text(14 + textOffsetX, -textOffsetY, '$u_{M-2}^n$', 'interpreter', 'latex', 'Fontsize', 18)
-        text(15 + textOffsetX, -textOffsetY, '$u_{M-1}^n$', 'interpreter', 'latex', 'Fontsize', 18)
-        text(16 + textOffsetX, -textOffsetY, '$u_M^n$', 'interpreter', 'latex', 'Fontsize', 18)
-        text(15 + textOffsetX, wOffset + textOffsetY, '$w_0^n$', 'interpreter', 'latex', 'Fontsize', 18)
-        text(16 + textOffsetX, wOffset + textOffsetY, '$w_1^n$', 'interpreter', 'latex', 'Fontsize', 18)
-        text(17 + textOffsetX, wOffset + textOffsetY, '$w_2^n$', 'interpreter', 'latex', 'Fontsize', 18)
-        
-        plot([15, 15], [wOffset, 0], '--', 'Color', 'k', 'Linewidth', 2);
-        plot([16, 16], [wOffset, 0], '--', 'Color', 'k', 'Linewidth', 2);
-
-        text(15 + textOffsetX, wOffset*0.5, '$F_1$', 'interpreter', 'latex', 'Fontsize', 18)
-        text(16 + textOffsetX, wOffset*0.5, '$F_2$', 'interpreter', 'latex', 'Fontsize', 18)
-%         yticklabels([])
-        yticks([])
+% %         hold on;
+% %         scatter([hLocsLeft(end) + h, hLocsRight(1) - h], [uRightPoint, uLeftPoint]);
+% %         scatter((hLocsLeft(end)+h) * N, 0, 'b', 'Marker', 'o', 'Linewidth', 2)
+% %         scatter((hLocsRight(1)-h) * N, 0, 'r', 'filled')
+% %         legend('$u$', '$w$', '$u_{M+1}$', '$w_{-1}$', 'interpreter', 'latex', 'Fontsize', 16)
+%         textOffsetX = 0.1;
+%         xlim([12, 19])
+%         ylim([-0.1, 0.1] + wOffset * 0.5)
+%         textOffsetY = 0.007;
+%         text(14 + textOffsetX, -textOffsetY, '$u_{M-2}^n$', 'interpreter', 'latex', 'Fontsize', 18)
+%         text(15 + textOffsetX, -textOffsetY, '$u_{M-1}^n$', 'interpreter', 'latex', 'Fontsize', 18)
+%         text(16 + textOffsetX, -textOffsetY, '$u_M^n$', 'interpreter', 'latex', 'Fontsize', 18)
+%         text(15 + textOffsetX, wOffset + textOffsetY, '$w_0^n$', 'interpreter', 'latex', 'Fontsize', 18)
+%         text(16 + textOffsetX, wOffset + textOffsetY, '$w_1^n$', 'interpreter', 'latex', 'Fontsize', 18)
+%         text(17 + textOffsetX, wOffset + textOffsetY, '$w_2^n$', 'interpreter', 'latex', 'Fontsize', 18)
+%         
+%         plot([15, 15], [wOffset, 0], '--', 'Color', 'k', 'Linewidth', 2);
+%         plot([16, 16], [wOffset, 0], '--', 'Color', 'k', 'Linewidth', 2);
+% 
+%         text(15 + textOffsetX, wOffset*0.5, '$F_1$', 'interpreter', 'latex', 'Fontsize', 18)
+%         text(16 + textOffsetX, wOffset*0.5, '$F_2$', 'interpreter', 'latex', 'Fontsize', 18)
+% %         yticklabels([])
+%         yticks([])
 
         set(gca, 'Fontsize', 16, 'Linewidth', 2)
         if n == 16
             disp("wait")
         end
         
-%         subplot(3,1,2)
+        subplot(2,1,2)
+        plot(totEnergy(1:n) / totEnergy(1) - 1)
 %         hold off
 %         plot(totEnergyU(1:n) + totEnergyW(1:n) - (totEnergyU(1) + totEnergyW(1)))     
 % %         hold on
