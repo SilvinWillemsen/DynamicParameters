@@ -2,12 +2,12 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 100;
+drawSpeed = 10000;
 fs = 44100;
 k = 1/fs;
 lengthSound = fs;
 
-Ninit = 30.0;
+Ninit = 30.5;
 N = Ninit;
 L = 1;
 h = 1/N;
@@ -48,18 +48,16 @@ origHLocs = 0:h:1;
 
 eu = ones(length(u), 1);
 Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
-% Dxxu(end-2,end-1) = 0.5;
-Dxxu(end-1,end-2) = 2;
-% Dxxu(end,end-1) = 2;
-% Dxxu(end-1,end) = 1/3;
-% Dxxu(end,end) = -2;
+
+Dxxu(end-1,end-2) = 1.5;
+Dxxu(end,end-1) = 1.5;
 
 
 ew = ones(length(w), 1);
 Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
 % Dxxw(3,2) = 0.5;
-Dxxw(2,3) = 2;
-% Dxxw(1,2) = 2;
+Dxxw(2,3) = 1.5;
+Dxxw(1,2) = 1.5;
 % Dxxw(2,1) = 1/3;
 % Dxxw(1,1) = -2;
 
@@ -73,7 +71,7 @@ eta = 0;
 etaNext = 0;
 omega0 = 10000;
 interpol = "linear";
-
+outFree = zeros(lengthSound, 1);
 for n = 1:lengthSound
     NPrev = N;
     if changeC
@@ -81,7 +79,7 @@ for n = 1:lengthSound
     else
         c = c;
     end
-    h = c*k;
+    h = 1.001*c*k;
     Ninit = 1/h;
     N = floor(1/h);
     Nsave(n) = N;
@@ -194,22 +192,38 @@ for n = 1:lengthSound
     zNext = 2 * z + lambdaSq * Dxxz * z - zPrev;
 
 
+    alf = 0.5;
     %% connection  
-    Iu1 = zeros(1,length(u));
-    Iw1 = zeros(1,length(w));
-    Iu1(end-1) = 1;
-    Iw1(1) = 1;
-    
-    Iu2 = zeros(1,length(u));
-    Iw2 = zeros(1,length(w));
-    Iu2(end) = 1;
-    Iw2(2) = 1;
-    
-    F1 = h * c^2 / h^2 * (-u(end-2));
-    F2 = h * c^2 / h^2 * (w(3));
+    I1u = zeros(1,length(u));
+    I1w = zeros(1,length(w));
+    I1u(end-1) = 1-alf;
+    I1u(end) = alf;
+    I1w(1) = 1;
+    J1u = I1u' * 1/h;    
+    J1w = I1w' * 1/h;
 
-    uNext = uNext + k^2 * (Iu1' * 1/h * F1 + Iu2' * 1/h * F2);
-    wNext = wNext - k^2 * (Iw1' * 1/h * F1 + Iw2' * 1/h * F2);
+    I2u = zeros(1,length(u));
+    I2w = zeros(1,length(w));
+    I2u(end) = 1;
+    I2w(1) = alf;
+    I2w(2) = 1-alf;
+    J2u = I2u' * 1/h;    
+    J2w = I2w' * 1/h;
+
+    
+    a11 = I1u * J1u + I1w * J1w;
+    a12 = I1u * J2u + I1w * J2w;
+    a21 = I2u * J1u + I2w * J1w;
+    a22 = I2u * J2u + I2w * J2w;
+    
+%     F1 = h * c^2 / h^2 * (-u(end-2));
+%     F2 = h * c^2 / h^2 * (w(3));
+
+    solut = [a11, a12; ...
+             a21, a22] \ [(c^2 / h^2 * sum(I1w * Dxxw * w) - c^2 / h^2 * sum(I1u * Dxxu * u)); ...
+                (c^2 / h^2 * sum(I2w * Dxxw * w) - c^2 / h^2 * sum(I2u * Dxxu * u))];
+    uNext = uNext + k^2 * (J1u * solut(1) + J2u * solut(2));
+    wNext = wNext - k^2 * (J1w * solut(1) + J2w * solut(2));
 
     scalingU = ones(length(u),1);
     scalingU(end-1:end) = 0.5;
@@ -287,7 +301,7 @@ for n = 1:lengthSound
 % %         plot(connEnergy(1:n) / 2)
 %         subplot(3,1,3);
 %         plot(totEnergy(1:n) / totEnergy(1) - 1);
-
+        pause(0.2)
         drawnow;
     end
     uPrev = u;
