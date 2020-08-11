@@ -14,7 +14,7 @@ L = 1;
 SR = 44100;
 k = 1/SR;
 
-N = 31.2;
+N = 35.9;
 h = 1/N;
 c = h/k;
 
@@ -133,15 +133,15 @@ for n=1:Nf
     scaling = ones(N,1);
 %     scaling(N) = 1/(alf+1);
     scaling(N) = (2+alf)/2;
-    range = 1:N-1
+    range = 1:N-1;
     H(n) = 0.5*(u-u1)'*P*(u-u1)/k^2-0.5*(c^2/h^2)*u'*P*Dxx*u1;
     
 %     hold off;
 %     plot(kinEnergy(1:n))
 %     hold on;
 %     plot(potEnergy(1:n))
-    plot(H(1:n))
-    drawnow;
+%     plot(H(1:n))
+%     drawnow;
     u2 = u1;
     u1 = u;
     out(n) = u(floor(1*N/6));
@@ -162,5 +162,5 @@ figure(2)
 Herr = (H(2:end)-H(1:end-1))/H(1);
 
 plot(Herr)
-soundsc(out,SR)
+% soundsc(out,SR)
 c/2
