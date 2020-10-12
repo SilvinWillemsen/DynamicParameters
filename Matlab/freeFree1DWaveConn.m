@@ -2,14 +2,14 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 1;
+drawSpeed = 1000;
 drawStart = 1;
 
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
 lengthSound = fs*2;     % Length of the simulation
 
-Ninit = 30.9999;           % edit how many points you want
+Ninit = 30.5;           % edit how many points you want
 h = 1/Ninit;
 
 cInit = h/k;            % calculate wave speed
@@ -55,7 +55,7 @@ for n = 1:lengthSound
  
     % change wave speed
     if changeC
-        c = cInit * (1-0.1 * sin(150 * pi * n/fs));
+        c = cInit * (1-0.5 * sin(1 * pi * n/fs));
     else
         c = c;
     end

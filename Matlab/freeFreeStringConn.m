@@ -3,11 +3,11 @@ close all;
 % clc;
 
 drawSpeed = 10;
-drawStart = 1000;
+drawStart = 1000000;
 
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
-lengthSound = fs;     % Length of the simulation
+lengthSound = fs*5;     % Length of the simulation
 
 Ninit = 140;           % edit how many points you want
 h = 1/Ninit;
@@ -76,14 +76,14 @@ Dxxxxz (end, end) = 5;
 interpol = "linear";
 outFree = zeros(lengthSound, 1);
 
-changeC = false; % set to true for dynamic changes in wavespeed
+changeC = true; % set to true for dynamic changes in wavespeed
 interpolatedPoints = [0; 0];
 
 for n = 1:lengthSound  
  
     % change wave speed
     if changeC
-        c = cInit * (1+10 * n / fs);% * sin(15 * pi * n/fs));
+        c = cInit * (1 + sin(2 * pi * n/fs));
     else
         c = c;
     end
