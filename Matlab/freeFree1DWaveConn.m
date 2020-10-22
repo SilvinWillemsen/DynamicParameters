@@ -1,15 +1,16 @@
-clear all;
+    clear all;
 close all;
 clc;
 
-drawSpeed = 1000;
-drawStart = 1;
+drawSpeed = 1;
+drawStart = 0;
+drawThings = true;
 
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
-lengthSound = fs*2;     % Length of the simulation
+lengthSound = fs;       % Length of the simulation
 
-Ninit = 30.5;           % edit how many points you want
+Ninit = 30 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
 
 cInit = h/k;            % calculate wave speed
@@ -21,16 +22,21 @@ N = floor(1/h);         % calculate points from h
 lambdaSq = (c*k/h)^2    % should always be 1 as h is not recalculated
 
 alf = Ninit - N;        % fractional remainder for the grid point
-
+% alf = 0;
 %% initialise states
 uNext = zeros(ceil(N/2), 1);
 u = zeros(ceil(N/2), 1);
 
-u(floor(N/5)-4:floor(N/5)+4) = 1 * hann (9); % use hann window for excitation
+u(floor(N/5)-4:floor(N/5)+4) = hann(9); % use hann window for excitation
+% u = rand(length(u), 1);
 uPrev = u;
 
 wNext = zeros(floor(N/2), 1);
 w = zeros(floor(N/2), 1);
+% w(floor(4*/5)-4:floor(4*N/5)+4) = hann(9); % use hann window for excitation
+
+% w = rand(length(w), 1);
+% w(1) = u(end);
 wPrev = w;
 
 % initialise laplacians
@@ -40,7 +46,7 @@ Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
 ew = ones(length(w), 1);
 Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
 
-interpol = "linear";
+interpol = "cubic";
 outFree = zeros(lengthSound, 1);
 
 changeC = false; % set to true for dynamic changes in wavespeed
@@ -51,6 +57,8 @@ frame = 1;
 filmFlag = true;
 interpolatedPoints = [0; 0];
 
+%% plotting
+figure('Position', [100, 100, 500, 210])
 for n = 1:lengthSound  
  
     % change wave speed
@@ -153,74 +161,103 @@ for n = 1:lengthSound
     scalingW = ones(length(w),1);
     scalingW(1) = 0.5 * (1 + alf);
 
-%     kinEnergyW(n) = 1/2 * h * sum(scalingW .* (1/k * (w - wPrev)).^2);
     kinEnergyW(n) = 1/2 * h * sum ((1/k * (w(2:end) - wPrev(2:end))).^2);
     connKinEnergyW(n) = 1/2 * h * scalingW(1) * (1/k * (w(1) - wPrev(1))).^2;
        
     potEnergyW(n) = c^2/(2 * h) * sum((w(2:end) - w(1:end-1)) .* (wPrev(2:end) - wPrev(1:end-1)));
     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % left boundary
-%     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((w(1) - u(end-1)) .* (uPrev(1) - uPrev(end-1))); % right boundary
 
     totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
-%     connPotEnergy(n) = alf * c^2/(4 * h) * sum((interpolatedPoints(1) - u(end)) .* (interpolatedPointsPrev(1) - uPrev(end)));
-%     connPotEnergy(n) = connPotEnergy(n) + alf * c^2/(4 * h) * sum((w(1) - interpolatedPoints(2)) .* (wPrev(1) - interpolatedPointsPrev(2)));
+
     connPotEnergy(n) = alf * c^2/(2 * h) * sum((interpolatedPoints(1) -  interpolatedPoints(2)) .* (interpolatedPointsPrev(1) - interpolatedPointsPrev(2)));
     totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
     totTotEnergy(n) = totEnergy(n) + connPotEnergy(n) + connKinEnergyU(n) + connKinEnergyW(n);
    
     %% save output
-    outFree(n) = w(end - 5);
+    outFree(n) = w(end - 6 * fs / 44100);
 
     %% draw stuff
-    if mod(n, drawSpeed) == 0 && n > drawStart
-        hLocsLeft = (1:(length(u))) * h;
-        hLocsRight = flip(1 - ((1:(length(w))) * h));
-   
-        subplot(311)
+    if n == 16 && n > drawStart && drawThings % && mod(n, drawSpeed) == 0
+        
+        gridMove = true;
+        zoomed = true;
+        addingPoint = true;
+        if gridMove
+            if addingPoint
+                h = 1/31.5;
+            else
+                h = 1/30.5;
+            end
+            
+            hLocsLeft = (0:(length(u))) * h * N;
+            hLocsRight = (fliplr(1 - h * (0:(length(w))))) * N;
+            
+        else
+            hLocsLeft = (0:(length(u)))
+            hLocsRight = (fliplr(N - (0:(length(w)))));
+            subplot(311)
+        end
         hold off;
-        plot(hLocsLeft, u, 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') 
+        uPlot = plot(hLocsLeft, [0;u], 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') ;
 
         hold on;
         wOffset = 0.00;
-        plot(hLocsRight, w + wOffset, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r')
+        wPlot = plot(hLocsRight, [w + wOffset; 0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
 
-%         plot((h/2:h/2:1-h/2) * N, z, 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10)
-
-                
-        ylim([-1.5, 1.5])
+        if gridMove
+            xtickLocs = [0, hLocsLeft(ceil(length(u) / 2)), hLocsLeft(end), hLocsRight(1), hLocsRight(end-ceil(length(w) / 2)), N];
+            xlabelSave = ["$u_0$", "$u_l$", "$u_M\ \ \;$", "$\ \ \;w_0$", "$w_l$", "$w_{M_w}$"];        
+            if zoomed
+                if ~addingPoint
+                    scatter((hLocsRight(1) + hLocsRight(2)) * 0.5, 0, 40, 'b', 'Marker', 'o', 'Linewidth', 2)
+                    scatter((hLocsLeft(end-1) + hLocsLeft(end)) * 0.5, 0, 300, 'r', 'Marker', '.', 'Linewidth', 2)
+                    xtickLocs = [(hLocsLeft(end-1) + hLocsLeft(end)) * 0.5, hLocsLeft(end), hLocsRight(1), (hLocsRight(1) + hLocsRight(2)) * 0.5];
+                    xlabelSave = ["$w_{-1}\ $", "$u_M$", "$w_0$", "$\ \ u_{N+1}$"];        
+                else
+                    scatter(hLocsLeft(end) + h * N, 0, 400, 'b', 'Marker', '.', 'Linewidth', 2)
+                    plot([hLocsLeft(end), hLocsLeft(end) + h * N], [0, 0], 'b--', 'Linewidth', 2)
+%                     xtickLocs = [hLocsLeft(end), hLocsLeft(end) + h * N, hLocsRight(1)];
+%                     xlabelSave = ["$u_M$", "$I_3'\mathbf{v}^n$", "$w_0$"];        
+                    xtickLocs = [hLocsLeft(end-1), hLocsLeft(end), hLocsRight(1), hLocsRight(2)];
+                    xlabelSave = ["$u_{M-1}$", "$u_M$", "$w_0$", "$w_1$"];   
+                    text(hLocsLeft(end) + h * N, 0.1, "$I_3'\mathbf{v}^n$", 'horizontalalignment', 'center', 'interpreter', 'latex', 'Fontsize', 16);
+                end 
+            end
+        else
+            xtickLocs = [0, floor(length(u) / 2), length(u), length(u) + floor(length(w) / 2), N];
+            xlabelSave = ["$u_0$", "$u_l$", "$u_M, w_0$", "$w_l$", "$w_{M_w}$"];        
+        end
+        ylim([-0.6, 0.6])
+        xlabel("$l$", 'interpreter', 'latex')
         grid on;
-        title("Sample = " + num2str(n) + "   N = " + num2str(floor(Ninit * 10) / 10))
-        set(gca, 'Fontsize', 16, 'Linewidth', 2)
+        if zoomed
+            xlim([hLocsLeft(end-4), hLocsRight(5)])
+        end
+        ax = gca;
+        ax.YTickLabel = ["$" + num2str(ax.YTick.') + repmat('\qquad',size(ax.YTickLabel,1),1) + "$"];
+%         title("Sample = " + num2str(n) + "   N = " + num2str(floor(Ninit * 10) / 10))
+        legend([uPlot, wPlot], ["$u$", "$w$"], 'Fontsize', 16, 'interpreter', 'latex')
+        set(gca, 'Fontsize', 16, 'Linewidth', 2,...
+            'xtick', xtickLocs, ...
+            'xticklabel', xlabelSave, ...
+            'TickLabelInterpreter', 'latex', ...
+            'Position', [0.02 0.129186602870813 0.950000000000001 0.85645933014354]);
+        set(gcf, 'Color', 'w');
+
         if n == 16
-            disp("wait")
+           disp("wait")
         end
         
-        subplot(312)
-        hold off;
-        plot(totEnergy(1:n) - totEnergy(1) + connKinEnergyU(1:n) + connKinEnergyW(1:n))
-%         plot(totEnergy(1:n) - totEnergy(1) + connPotEnergy(1:n))
-%         plot(totEnergy(1:n) - totEnergy(1))
-        hold on;
-        plot(connPotEnergy(1:n))
-%         plot(connKinEnergyU(1:n) + connKinEnergyW(1:n))
-
-        subplot(313)
-        plot(totTotEnergy(1:n))
-
-
-%         subplot(2,1,2)
+%         subplot(312)
+%         hold off;
+%         plot(totEnergy(1:n) - totEnergy(1) + connKinEnergyU(1:n) + connKinEnergyW(1:n))
 % 
-%         window = 1024;
-%         if n>window
-%             outfft = fft(outFree(n-window+1 : n));
-%             data = abs(outfft);
-%             semilogy([0:window-1]'*fs/window, data, 'r');
-%             if ~changeC % not accurate if frequency is changing on the fly
-%                 title("Peak should be at " + num2str(c/2))
-%             end
-%             xlim([0 3*cInit])
-%         end
-%         pause(0.2)
+%         hold on;
+%         plot(connPotEnergy(1:n))
+% 
+%         subplot(313)
+%         plot(totTotEnergy(1:n))
+
         drawnow;
 %         if frame <= length(M) && filmFlag == true
 %             M(frame) = getframe(gcf);
@@ -244,13 +281,23 @@ for n = 1:lengthSound
     
 end
 
-subplot(2,1,1)
-hold off
-plot(outFree)
-
-subplot(2,1,2)
-outfft = fft(outFree);
-semilogy([0:lengthSound-1]'*fs/lengthSound, abs(outfft), 'r');
-xlim([0 3*c])
-
-c/2
+% subplot(2,1,1)
+hold on
+plot((1:fs) / fs, outFree)
+% 
+% subplot(2,1,2)
+% hold on;
+% outfft = fft(outFree);
+% plot([0:lengthSound-1]'*fs/lengthSound, 20 * log10(abs(outfft)), 'Linewidth', 2);
+% xlim([0 0.4 * 44100])
+% ylim([-60, 80])
+% legend(["$f_s = 44100 \quad N =" + num2str(Ninit * 44100 / fs) + "$", ...
+%     "$f_s =" + num2str(fs) + "\quad N =" + num2str(Ninit) + "$"], ...
+%     'interpreter', 'latex')
+% grid on
+% xlabel("$f$ (in Hz)", 'interpreter', 'latex')
+% ylabel("Magnitude (in dB)")
+% set(gca, 'Fontsize', 16, 'Linewidth', 2)
+% set(gcf, 'Color', 'w')
+% 
+% c/2
