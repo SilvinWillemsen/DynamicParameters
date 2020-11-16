@@ -56,12 +56,12 @@ totEnergy = zeros(lengthSound, 1);
 interpolationType = "linear";
 uVirtualPrev = 0;
 potEnergyRange = 1:N;
-changeT = false;
+changeT = true;
 L = 1;
 for n = 1:lengthSound
     NPrev = N;
     if changeT
-        T = Tinit * (1-0.5*n/lengthSound);
+        T = Tinit * (1-0.1*n/lengthSound);
 %         T = Tinit * ((1 - (n-10)/10) + 0.5^2 * (n-10)/10);
 %         L = 1 + (n-10)/10;
     else
@@ -109,31 +109,31 @@ for n = 1:lengthSound
 %     kinEnergy(n) = rho * A / 2 * h * sum((1/k * (u(range) - uPrev(range))).^2);
 %     kinEnergyBound(n) = rho * A / 2 * h * (1/k * (u(1) - uPrev(1)))^2;
 
-    kinEnergy(n) = rho * A / 2 * h * sum((1/k * (u - uPrev)).^2);
-    potEnergy(n) = T / (2 * h) * sum((u(potEnergyRange+1) - u(potEnergyRange)) .* (uPrev(potEnergyRange+1) - uPrev(potEnergyRange)));
-%     potEnergyBound(n) = (1+alpha) * T / (2 * h) * (u(1) - 0) .* (uPrev(1) - 0);
-    potEnergyBound(n) = T / (2 * h * (Ninit - floor(Ninit))) * (u(1) - 0) * (uPrev(1) - 0);
-%     potEnergyBound(n) = T / (2 * h * (1+alpha)) * (u(1) - uVirtual) * (uPrev(1) - uVirtualPrev);
-    potEnergyBound2(n) = T / (2 * h) * (0 - uVirtual) * (0 - uVirtualPrev);
-%     potEnergyBound(n) = (1 + alpha) * T / (2 * h) * sum((-uVirtual/alpha - 0) .* (-uVirtualPrev/alpha - 0));
-    
-    rOCkinEnergy(n) = rho * A * h / (2*k^3) * sum((uNext - 2 * u + uPrev) .* (uNext - uPrev));
-    rOCpotEnergy(n) = -T / (2 * k * h) * sum((u(range+1) - 2 * u(range) + u(range-1)) .* (uNext(range) - uPrev(range)));
-    rOCboundEnergy(n) = -T / (2 * k * h) * (u(2) - 2 * u(1) + uVirtual) * (uNext(1) - uPrev(1));
-    rOCTotEnergy(n) = rOCkinEnergy(n) + rOCpotEnergy(n) + rOCboundEnergy(n);
-    
-    rOCpotTest(n) = T / (2 * k * h) * sum((uNext(potEnergyRange+1) - uNext(potEnergyRange) - uPrev(potEnergyRange+1) + uPrev(potEnergyRange)) .* (u(potEnergyRange+1) - u(potEnergyRange)));
-    rOCpotTestBound(n) =  T / (2 * k * h) * (uNext(1) - uPrev(1)) * (u(1) - uVirtual);
-
-    
-    rOCTotEnergyTest(n) = rOCkinEnergy(n) + rOCpotTest(n) + rOCpotTestBound(n);
-    totEnergy(n) = kinEnergy(n) + potEnergy(n) + potEnergyBound(n) + potEnergyBound2(n);
-
 %     kinEnergy(n) = rho * A / 2 * h * sum((1/k * (u - uPrev)).^2);
-    potEnergy(n) = T / (2 * h) * sum((u(2:N+1) - u(1:N)) .* (uPrev(2:N+1) - uPrev(1:N)));
-    potEnergyBound(n) = 2 * T / (2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0));
-    scaling = ones(N+1, 1);
-    scaling(1) = 0.5;
+%     potEnergy(n) = T / (2 * h) * sum((u(potEnergyRange+1) - u(potEnergyRange)) .* (uPrev(potEnergyRange+1) - uPrev(potEnergyRange)));
+% %     potEnergyBound(n) = (1+alpha) * T / (2 * h) * (u(1) - 0) .* (uPrev(1) - 0);
+%     potEnergyBound(n) = T / (2 * h * (Ninit - floor(Ninit))) * (u(1) - 0) * (uPrev(1) - 0);
+% %     potEnergyBound(n) = T / (2 * h * (1+alpha)) * (u(1) - uVirtual) * (uPrev(1) - uVirtualPrev);
+%     potEnergyBound2(n) = T / (2 * h) * (0 - uVirtual) * (0 - uVirtualPrev);
+% %     potEnergyBound(n) = (1 + alpha) * T / (2 * h) * sum((-uVirtual/alpha - 0) .* (-uVirtualPrev/alpha - 0));
+%     
+%     rOCkinEnergy(n) = rho * A * h / (2*k^3) * sum((uNext - 2 * u + uPrev) .* (uNext - uPrev));
+%     rOCpotEnergy(n) = -T / (2 * k * h) * sum((u(range+1) - 2 * u(range) + u(range-1)) .* (uNext(range) - uPrev(range)));
+%     rOCboundEnergy(n) = -T / (2 * k * h) * (u(2) - 2 * u(1) + uVirtual) * (uNext(1) - uPrev(1));
+%     rOCTotEnergy(n) = rOCkinEnergy(n) + rOCpotEnergy(n) + rOCboundEnergy(n);
+%     
+%     rOCpotTest(n) = T / (2 * k * h) * sum((uNext(potEnergyRange+1) - uNext(potEnergyRange) - uPrev(potEnergyRange+1) + uPrev(potEnergyRange)) .* (u(potEnergyRange+1) - u(potEnergyRange)));
+%     rOCpotTestBound(n) =  T / (2 * k * h) * (uNext(1) - uPrev(1)) * (u(1) - uVirtual);
+% 
+%     
+%     rOCTotEnergyTest(n) = rOCkinEnergy(n) + rOCpotTest(n) + rOCpotTestBound(n);
+%     totEnergy(n) = kinEnergy(n) + potEnergy(n) + potEnergyBound(n) + potEnergyBound2(n);
+% 
+% %     kinEnergy(n) = rho * A / 2 * h * sum((1/k * (u - uPrev)).^2);
+%     potEnergy(n) = T / (2 * h) * sum((u(2:N+1) - u(1:N)) .* (uPrev(2:N+1) - uPrev(1:N)));
+%     potEnergyBound(n) = 2 * T / (2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0));
+%     scaling = ones(N+1, 1);
+%     scaling(1) = 0.5;
     
 %     rOCpotRange = 2:N;
 %     rOCkinEnergy(n) = h * rho * A / (2 * k^3) * sum(scaling .* (uNext - 2 * u + uPrev) .* (uNext - uPrev));
@@ -141,7 +141,7 @@ for n = 1:lengthSound
 %         .* (uNext(rOCpotRange) - uPrev(rOCpotRange)));
 %     boundaryEnergy(n) = -T / (4 * k * h)  * (uNext(1) - uPrev(1)) * (u(1) + u(2));
 %     
-    totEnergy(n) = kinEnergy(n) + potEnergy(n) + potEnergyBound(n);
+%     totEnergy(n) = kinEnergy(n) + potEnergy(n) + potEnergyBound(n);
         
     if mod(n, drawSpeed) == 0
 

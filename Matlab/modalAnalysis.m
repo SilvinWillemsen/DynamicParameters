@@ -10,7 +10,7 @@ if loopingN
 else
     range = 1;
 end
-loopAmount = 10000;
+loopAmount = 1000;
 interpolation = "none"; %!!!!
 
 %{

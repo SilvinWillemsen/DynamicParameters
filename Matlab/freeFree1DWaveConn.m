@@ -1,18 +1,21 @@
-    clear all;
+clear all;
 close all;
 clc;
 
-drawSpeed = 1;
+drawSpeed = 10000;
 drawStart = 0;
-drawThings = true;
+drawThings = false;
 
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
-lengthSound = fs;       % Length of the simulation
+lengthSound = fs * 1;       % Length of the simulation
+
+startSample = 0;
 
 Ninit = 30 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-
+Nend = 31 * fs / 44100;
+cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
 
@@ -27,7 +30,15 @@ alf = Ninit - N;        % fractional remainder for the grid point
 uNext = zeros(ceil(N/2), 1);
 u = zeros(ceil(N/2), 1);
 
-u(floor(N/5)-4:floor(N/5)+4) = hann(9); % use hann window for excitation
+excitationWidth = 0.2;
+excitationLoc = 0.2;
+loc = excitationLoc * N;
+width = max (4.0, excitationWidth * N);
+raisedCosStart = floor (loc - width * 0.5);
+raisedCosEnd = floor (loc + width * 0.5);
+
+u(raisedCosStart : raisedCosEnd) = 0.5 * (1 - cos (2.0 * pi * ((raisedCosStart:raisedCosEnd)-raisedCosStart) / width));
+% u(floor(N/5)-4:floor(N/5)+4) = hann(9); % use hann window for excitation
 % u = rand(length(u), 1);
 uPrev = u;
 
@@ -49,7 +60,7 @@ Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
 interpol = "cubic";
 outFree = zeros(lengthSound, 1);
 
-changeC = false; % set to true for dynamic changes in wavespeed
+changeC = true; % set to true for dynamic changes in wavespeed
 
 %% recording
 M(500) = struct('cdata',[],'colormap',[]);
@@ -58,20 +69,36 @@ filmFlag = true;
 interpolatedPoints = [0; 0];
 
 %% plotting
+
+cVec = linspace(cInit, cEnd, lengthSound);
 figure('Position', [100, 100, 500, 210])
+
+uSave = [];
+wSave = [];
+MuSave = [];
+MwSave = [];
+
+NVec = linspace(Ninit, Nend, lengthSound);
+
 for n = 1:lengthSound  
  
-    % change wave speed
+%     % change wave speed
     if changeC
-        c = cInit * (1-0.5 * sin(1 * pi * n/fs));
+        c = cVec(n);
+    elseif changeN
+        Ninit = NVec(n);
+        h = 1/Ninit;
+        c = h/k;
     else
         c = c;
     end
-    cSave(n) = c;
+%     cSave(n) = c;
     
     % save previous state for comparison later
     NPrev = N;
 
+  
+    cSave(n) = c;
     % recalculate gridspacing, points lambda^2 and alpha from new wave speed
     h = c*k;
     Ninit = 1/h;
@@ -82,7 +109,7 @@ for n = 1:lengthSound
     lambdaSq = c^2 * k^2 / h^2;
 
     alf = (Ninit - N);
-  
+  alfSave(n) = alf;
     % calculate interpolator
     if interpol == "cubic"
         ip = [alf * (alf - 1) * (alf - 2) / -6, ...
@@ -144,6 +171,12 @@ for n = 1:lengthSound
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
     wNext(1) = wNext(1) + lambdaSq * interpolatedPoints(2);
 
+    if n > startSample && n < startSample + 100
+        uSave = [uSave; u];
+        wSave = [wSave; w];
+        MuSave = [MuSave; length(u)];
+        MwSave = [MwSave; length(w)];
+    end
     %% energies
     
     scalingU = ones(length(u),1);
@@ -174,14 +207,14 @@ for n = 1:lengthSound
     totTotEnergy(n) = totEnergy(n) + connPotEnergy(n) + connKinEnergyU(n) + connKinEnergyW(n);
    
     %% save output
-    outFree(n) = w(end - 6 * fs / 44100);
+    outFree(n) = w(end - 5 * fs / 44100);
 
     %% draw stuff
-    if n == 16 && n > drawStart && drawThings % && mod(n, drawSpeed) == 0
+    if n > drawStart && drawThings % && mod(n, drawSpeed) == 0
         
-        gridMove = true;
-        zoomed = true;
-        addingPoint = true;
+        gridMove = false;
+        zoomed = false;
+        addingPoint = false;
         if gridMove
             if addingPoint
                 h = 1/31.5;
@@ -193,7 +226,7 @@ for n = 1:lengthSound
             hLocsRight = (fliplr(1 - h * (0:(length(w))))) * N;
             
         else
-            hLocsLeft = (0:(length(u)))
+            hLocsLeft = (0:(length(u)));
             hLocsRight = (fliplr(N - (0:(length(w)))));
             subplot(311)
         end
@@ -283,7 +316,7 @@ end
 
 % subplot(2,1,1)
 hold on
-plot((1:fs) / fs, outFree)
+plot((1:lengthSound) / fs, outFree)
 % 
 % subplot(2,1,2)
 % hold on;
