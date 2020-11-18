@@ -1,4 +1,3 @@
-close all;
 clc;
 
 loadFiles = true;
@@ -8,11 +7,15 @@ if loadFiles
     loadCppFiles;
 end
 
+if curFs == 44100
+    close all;
+end
+
 plotState = false;
 k = 1/curFs;
-drawSpeed = 200; 
+drawSpeed = 1; 
 
-
+plotSpectrogram = false;
 
 % if origVersion == "I"
 %     dynamicString = 0;
@@ -76,7 +79,7 @@ if plotState
 %                 startIdxU = endIdxU + 1;
 %                 startIdxW = endIdxW + 1;
                 title(100 * n/(length(plotIdxD)))
-                ylim([-1, 1])
+%                 ylim([-1, 1])
                 pause(0.5);
                 drawnow;
                 if n == 200 * 4 + 1
@@ -127,73 +130,122 @@ if plotState
     
 end
 
-figure;
-% plot(output((21900:21960) * curFs / 44100))
-% plot(outputI)
-% hold on;
-% plot(outputD)
+if plotSpectrogram
+    figure;
+    % plot(output((21900:21960) * curFs / 44100))
+    % plot(outputI)
+    % hold on;
+    % plot(outputD)
 
-% plot(abs(fft(outputI)))
-% hold on;
-% plot(abs(fft(outputD)))
+    % plot(abs(fft(outputI)))
+    % hold on;
+    % plot(abs(fft(outputD)))
 
-% if curFs == 44100
-%     outputIToPlot = outputI; 
-%     outputDToPlot = outputD; 
-% else
-%     outputIToPlot = outputI;
-%     outputDToPlot = outputDNot44100;
-% end
-if origVersion == "B"
-    subplot(211)
+    % if curFs == 44100
+    %     outputIToPlot = outputI; 
+    %     outputDToPlot = outputD; 
+    % else
+    %     outputIToPlot = outputI;
+    %     outputDToPlot = outputDNot44100;
+    % end
+    if origVersion == "B"
+        subplot(211)
+    end
+    if origVersion == "I" || origVersion == "B"
+        spectrogram(outputI,512,64,512, curFs)
+        view(90, -90)
+        title("Interpolation")
+    end
+
+    if origVersion == "B"
+        subplot(212)
+    end
+    if origVersion == "D" || origVersion == "B"
+        subplot(211)
+        spectrogram(outputD,512,64,512, curFs, 'yaxis');
+        subplot(212)
+        plot(outputD)
+        % Create figure
+    %     figure1 = figure;
+    % 
+    %     % Create axes
+    %     axes1 = axes('Parent',figure1);
+    %     hold(axes1,'on');
+    % 
+    %     % Create surf
+    %     surf(20*log10(abs(S)),'Parent',axes1,'LineStyle','none',...
+    %         'EdgeColor','none');
+    % 
+    %     % Create xlabel
+    %     xlabel('Time (s)');
+    % 
+    %     % Create ylabel
+    %     ylabel('Frequency (kHz)');
+    % 
+    %     % Uncomment the following line to preserve the X-limits of the axes
+    %     % xlim(axes1,[0 22.05]);
+    %     % Uncomment the following line to preserve the Y-limits of the axes
+    %     % ylim(axes1,[0.00580498866213152 9.99183673469388]);
+    %     view(axes1,[0 90]);
+    %     grid(axes1,'on');
+    %     hold(axes1,'off');
+    %     % Set the remaining axes properties
+    %     set(axes1,'CLim',[-156.53559774527 -18.2268523216544],'TickDir','out');
+    %     % Create colorbar
+    %     colorbar(axes1,'TickLabels',{'-140','-120','-100','-80','-60','-40','-20'});
+    %     title("Dynamic Grid")
+    end
+else
+    if curFs == 44100
+        figure('Position', [200, 200, 600, 300])
+    end
+    outfftD = fft(outputD);
+%     outfftI = fft(outputI);
+    lengthSound = length(outputD);
+    outfftInDb = 20 * log10(abs(outfftD));
+    [pks,locs] = findpeaks(outfftInDb, 'Threshold',0.1, 'MinPeakHeight',-10);
+    locs = locs - 1;
+    triWidth = 500;
+    triHeight = 4;
+    if curFs == 44100
+        rangeFFT = 0:lengthSound-1;
+        
+        fftPlot44100 = plot(rangeFFT(~isinf(outfftInDb))'*curFs/lengthSound, outfftInDb(~isinf(outfftInDb)), 'b', 'Linewidth', 2);
+        locsSave = locs;
+        hold on;
+        for i = 1:length(locs)
+            xTri = [locs(i) locs(i)-triWidth locs(i)-triWidth];%x coordinates of vertices
+            yTri = [pks(i) pks(i)-triHeight*0.5 pks(i)+triHeight*0.5];%y coordinates of vertices
+            patch(xTri,yTri,'blue', 'EdgeColor', 'none') %plotting triangle in white color
+        end
+    else
+        fftPlot88200 =plot([0:lengthSound-1]'*curFs/lengthSound, 20 * log10(abs(outfftD)),':r', 'Linewidth', 2);
+        for i = 1:length(locs)
+            xTri = [locs(i) locs(i)+triWidth locs(i)+triWidth];%x coordinates of vertices
+            yTri = [pks(i) pks(i)-triHeight*0.5 pks(i)+triHeight*0.5];%y coordinates of vertices
+            patch(xTri,yTri,'red', 'EdgeColor', 'none') %plotting triangle in white color
+        end
+
+    end
+    % plot([0:lengthSound-1]'*curFs/lengthSound, 20 * log10(abs(outfftI)), 'Linewidth', 2);
+    xlim([0 0.5 * 44100])
+    ylim([-25, 100])
+    if curFs == 88200
+        legend([fftPlot44100, fftPlot88200], ["$f_\textrm{\fontsize{7}{0}\selectfont s} = 44100 \quad N = 15.5$", ...
+        "$f_\textrm{\fontsize{7}{0}\selectfont s} = 88200 \quad N = 31$"], ...
+        'interpreter', 'latex')
+    end
+    grid on
+    xlabel("$f$ (in Hz)", 'interpreter', 'latex')
+    ylabel("Magnitude (in dB)", 'interpreter', 'latex')
+    title("Spectra of systems with different sample rates")
+    set(gca, 'Fontsize', 16, 'Linewidth', 2)
+    set(gcf, 'Color', 'w')
+    % 
+    % c/2
+    % hold on;
+    % plot(outFree)
+    % ylim([-0.2, 0.2])
+
+    % soundsc(output(1:(curFs / 44100):end), 44100);
 end
-if origVersion == "I" || origVersion == "B"
-    spectrogram(outputI,512,64,512, curFs)
-    view(90, -90)
-    title("Interpolation")
-end
-
-if origVersion == "B"
-    subplot(212)
-end
-if origVersion == "D" || origVersion == "B"
-%     subplot(211)
-    spectrogram(outputD,512,64,512, curFs, 'yaxis');
-%     subplot(212)
-%     plot(outputD)
-    % Create figure
-%     figure1 = figure;
-% 
-%     % Create axes
-%     axes1 = axes('Parent',figure1);
-%     hold(axes1,'on');
-% 
-%     % Create surf
-%     surf(20*log10(abs(S)),'Parent',axes1,'LineStyle','none',...
-%         'EdgeColor','none');
-% 
-%     % Create xlabel
-%     xlabel('Time (s)');
-% 
-%     % Create ylabel
-%     ylabel('Frequency (kHz)');
-% 
-%     % Uncomment the following line to preserve the X-limits of the axes
-%     % xlim(axes1,[0 22.05]);
-%     % Uncomment the following line to preserve the Y-limits of the axes
-%     % ylim(axes1,[0.00580498866213152 9.99183673469388]);
-%     view(axes1,[0 90]);
-%     grid(axes1,'on');
-%     hold(axes1,'off');
-%     % Set the remaining axes properties
-%     set(axes1,'CLim',[-156.53559774527 -18.2268523216544],'TickDir','out');
-%     % Create colorbar
-%     colorbar(axes1,'TickLabels',{'-140','-120','-100','-80','-60','-40','-20'});
-%     title("Dynamic Grid")
-end
-% hold on;
-% plot(outFree)
-% ylim([-0.2, 0.2])
-
-% soundsc(output(1:(curFs / 44100):end), 44100);
-

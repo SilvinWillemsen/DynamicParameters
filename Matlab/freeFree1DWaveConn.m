@@ -2,9 +2,9 @@ clear all;
 close all;
 clc;
 
-drawSpeed = 10000;
+drawSpeed = 1;
 drawStart = 0;
-drawThings = false;
+drawThings = true;
 
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
@@ -212,9 +212,9 @@ for n = 1:lengthSound
     %% draw stuff
     if n > drawStart && drawThings % && mod(n, drawSpeed) == 0
         
-        gridMove = false;
-        zoomed = false;
-        addingPoint = false;
+        gridMove = true;
+        zoomed = true;
+        addingPoint = true;
         if gridMove
             if addingPoint
                 h = 1/31.5;
@@ -235,8 +235,16 @@ for n = 1:lengthSound
 
         hold on;
         wOffset = 0.00;
-        wPlot = plot(hLocsRight, [w + wOffset; 0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+        if addingPoint
+            wPlot = plot(hLocsRight(1:2), [w(1:2) + wOffset], 'Linewidth', 2, 'Color', 'r');
+            scatter(hLocsRight(1), w(1), 80, 'r', 'Marker', 'o', 'Linewidth', 2);
+            scatter(hLocsRight(2), w(2), 80, 'r', 'Marker', 'x', 'Linewidth', 2);
+            plot(hLocsRight(2:3), [w(2:3) + wOffset], ':r', 'Linewidth', 2);
+            scatter(hLocsRight(3), w(3), 50, 'r', 'Marker', 'o', 'Linewidth', 1);
 
+        else   
+            wPlot = plot(hLocsRight, [w + wOffset; 0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+        end
         if gridMove
             xtickLocs = [0, hLocsLeft(ceil(length(u) / 2)), hLocsLeft(end), hLocsRight(1), hLocsRight(end-ceil(length(w) / 2)), N];
             xlabelSave = ["$u_0$", "$u_l$", "$u_M\ \ \;$", "$\ \ \;w_0$", "$w_l$", "$w_{M_w}$"];        
@@ -251,8 +259,8 @@ for n = 1:lengthSound
                     plot([hLocsLeft(end), hLocsLeft(end) + h * N], [0, 0], 'b--', 'Linewidth', 2)
 %                     xtickLocs = [hLocsLeft(end), hLocsLeft(end) + h * N, hLocsRight(1)];
 %                     xlabelSave = ["$u_M$", "$I_3'\mathbf{v}^n$", "$w_0$"];        
-                    xtickLocs = [hLocsLeft(end-1), hLocsLeft(end), hLocsRight(1), hLocsRight(2)];
-                    xlabelSave = ["$u_{M-1}$", "$u_M$", "$w_0$", "$w_1$"];   
+                    xtickLocs = [hLocsLeft(end-1), hLocsLeft(end), hLocsRight(1), hLocsRight(2), hLocsRight(3)];
+                    xlabelSave = ["$u_{M-1}$", "$u_M$", "$w_0$", "$w_1$", "$w_2$"];   
                     text(hLocsLeft(end) + h * N, 0.1, "$I_3'\mathbf{v}^n$", 'horizontalalignment', 'center', 'interpreter', 'latex', 'Fontsize', 16);
                 end 
             end
@@ -264,7 +272,7 @@ for n = 1:lengthSound
         xlabel("$l$", 'interpreter', 'latex')
         grid on;
         if zoomed
-            xlim([hLocsLeft(end-4), hLocsRight(5)])
+            xlim([hLocsLeft(end-3), hLocsRight(4)])
         end
         ax = gca;
         ax.YTickLabel = ["$" + num2str(ax.YTick.') + repmat('\qquad',size(ax.YTickLabel,1),1) + "$"];

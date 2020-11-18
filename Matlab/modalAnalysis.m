@@ -1,17 +1,26 @@
-% close all;
+close all;
 clear all;
 figure;
 loopingN = false;
-loopNStart = 15.0; % also use for Ninit an Nend
-loopNend = 20;
+loopNStart = 9.00; % also use for Ninit an Nend
+loopNend = 10.00;
+plotModeShapesBool = true;
 
+modeToPlot = -1; % if -1 plot all modes
+limSubplots = 3;
 if loopingN
     range = loopNStart:0.01:loopNend;
 else
     range = 1;
 end
-loopAmount = 1000;
-interpolation = "none"; %!!!!
+if plotModeShapesBool
+    loopAmount = 11;
+elseif loopingN
+    loopAmount = 1000;
+else
+    loopAmount = 10000;
+end
+interpolation = "cubic";
 
 %{
     Number from the right boundary (quite important, switches between
@@ -24,7 +33,7 @@ interpolation = "none"; %!!!!
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = -1;
+numFromBound = 1;
 
 for Nloop = range
     fs = 44100;                 % sample rate
@@ -186,18 +195,25 @@ for Nloop = range
             
         end
         % imagesc(BFull)
-        % drawnow;
-        modesSave(i, 1:N) = sort(1/(2 * pi * k) * acos (1/2 * eig(BFull)));
+        % drawnow;          
+        [~, D, W] = eig(BFull, 'vector');
+        if plotModeShapesBool
+    %         order = Ninit:-1:1;
+            plotModeShapes;
+        end
+        
+        modesSave(i, 1:N) = sort(1/(2 * pi * k) * acos (1/2 * D));
+        
     end
     if addLastPoint
         loopStart(j+1) = loopAmount;
     end
-    %     figure
+%         figure
     hold off;
     modesSave = modesSave;
     modesSave(modesSave==0) = nan;
     h = plot(real(modesSave));
-    
+
     colours = [];
     for j = 1:floor(maxNumberOfPoints)
         if mod(j,2) == 0
@@ -217,24 +233,24 @@ for Nloop = range
     grid on
     drawnow;
 end
-xData = 1:loopAmount;
-goodness = zeros(loopNStart, 1);
-rms = zeros(loopNStart, 1);
-sse = zeros(loopNStart, 1);
-
-figure;
-for i = 1:loopNStart
-    [~, got] = fit (xData(~isnan(modesSave(:,i)))', modesSave(~isnan(modesSave(:,i)),i), 'poly1');
-    goodness(i) = got.adjrsquare;
-    rms(i) = got.rmse;
-    sse(i) = got.sse;
-    
-    %     got
-    %     eval(['mode', num2str(i), ' = modesSave(:,', num2str(i), ');']);
-end
-subplot(211)
-plot(goodness)
-subplot(212)
-plot(sse)
+% xData = 1:loopAmount;
+% goodness = zeros(loopNStart, 1);
+% rms = zeros(loopNStart, 1);
+% sse = zeros(loopNStart, 1);
+% 
+% figure;
+% for i = 1:loopNStart
+%     [~, got] = fit (xData(~isnan(modesSave(:,i)))', modesSave(~isnan(modesSave(:,i)),i), 'poly1');
+%     goodness(i) = got.adjrsquare;
+%     rms(i) = got.rmse;
+%     sse(i) = got.sse;
+%     
+%     %     got
+%     %     eval(['mode', num2str(i), ' = modesSave(:,', num2str(i), ');']);
+% end
+% subplot(211)
+% plot(goodness)
+% subplot(212)
+% plot(sse)
 
 
