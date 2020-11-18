@@ -1,12 +1,22 @@
-close all;
-clear all;
-figure;
-loopingN = false;
-loopNStart = 9.00; % also use for Ninit an Nend
-loopNend = 10.00;
-plotModeShapesBool = true;
 
-modeToPlot = -1; % if -1 plot all modes
+
+close all;
+firstIteration = false;
+
+if firstIteration
+    clear all;
+    firstIteration = true;
+else
+    figure('Position', [200, 200, 1200, 450])
+    set(gcf, 'color', 'w');
+end
+% figure;
+loopingN = false;
+loopNStart = 15; % also use for Ninit an Nend
+loopNend = 16;
+plotModeShapesBool = ~firstIteration;
+
+modeToPlot = 8; % if -1 plot all modes
 limSubplots = 3;
 if loopingN
     range = loopNStart:0.01:loopNend;
@@ -14,11 +24,16 @@ else
     range = 1;
 end
 if plotModeShapesBool
-    loopAmount = 11;
+    loopAmount = 200;
 elseif loopingN
     loopAmount = 1000;
 else
     loopAmount = 10000;
+end
+if firstIteration
+    loopAmountRange = 1:loopAmount;
+else
+    loopAmountRange = 1:(loopAmount+1);
 end
 interpolation = "cubic";
 
@@ -95,14 +110,18 @@ for Nloop = range
         BFullInit = BFull;
     end
     maxNumberOfPoints = max(Ninit, Nend);
-    modesSave = zeros(loopAmount, floor(maxNumberOfPoints));
+    if firstIteration
+        modesSave = zeros(loopAmount, floor(maxNumberOfPoints));
+    end
     NPrev = N;
     j = 1;
-    loopStart = zeros(ceil(abs(Nend-Ninit)), 1);
-    loopStart(j) = 1;
+    if firstIteration
+        loopStart = zeros(ceil(abs(Nend-Ninit)), 1);
+        loopStart(j) = 1;
+    end
     addLastPoint = true;
     
-    for i = 1:loopAmount
+    for i = loopAmountRange
         h = cVec(i) * k;
         Ninit = 1/h;
         N = floor(Ninit);
@@ -116,7 +135,7 @@ for Nloop = range
         
         if N ~= NPrev
             BFull = zeros(N, N);
-            if i~= 1
+            if i~= 1 && firstIteration
                 j = j + 1;
                 loopStart(j) = i;
             end
@@ -201,36 +220,16 @@ for Nloop = range
     %         order = Ninit:-1:1;
             plotModeShapes;
         end
-        
-        modesSave(i, 1:N) = sort(1/(2 * pi * k) * acos (1/2 * D));
-        
+        if firstIteration
+            modesSave(i, 1:N) = sort(1/(2 * pi * k) * acos (1/2 * D));
+        end
     end
-    if addLastPoint
+    if addLastPoint && firstIteration
         loopStart(j+1) = loopAmount;
     end
 %         figure
     hold off;
-    modesSave = modesSave;
-    modesSave(modesSave==0) = nan;
-    h = plot(real(modesSave));
-
-    colours = [];
-    for j = 1:floor(maxNumberOfPoints)
-        if mod(j,2) == 0
-            colours = [colours; 0,0,1];
-        else
-            colours = [colours; 1,0,0];
-        end
-    end
-    %     figure
-    set(h, {'color', 'Linewidth'}, [num2cell(colours, 2), num2cell(2 * ones(floor(maxNumberOfPoints), 1))])
-    title ("Modal Analysis $N = " + loopNStart + " \rightarrow" + loopNend + "$", 'interpreter', 'latex');
-    xlabelsave = num2cell(NinitSave:Nend);
-    set(gca, 'Linewidth', 2, 'Fontsize', 16, 'XTick', loopStart, 'xticklabel', xlabelsave, 'TickLabelInterpreter', 'latex')
-    xlabel("$N$", 'interpreter', 'latex')
-    ylabel("Frequency (Hz)", 'interpreter', 'latex')
-    ylim([0, fs / 2])
-    grid on
+    plotModesSave;
     drawnow;
 end
 % xData = 1:loopAmount;
