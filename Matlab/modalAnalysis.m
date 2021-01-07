@@ -1,7 +1,5 @@
-
-
 close all;
-firstIteration = false;
+firstIteration = true;
 
 if firstIteration
     clear all;
@@ -12,8 +10,8 @@ else
 end
 % figure;
 loopingN = false;
-loopNStart = 15; % also use for Ninit an Nend
-loopNend = 16;
+loopNStart = 15.0; % also use for Ninit an Nend
+loopNend = 25.0;
 plotModeShapesBool = ~firstIteration;
 
 modeToPlot = 8; % if -1 plot all modes
@@ -24,7 +22,7 @@ else
     range = 1;
 end
 if plotModeShapesBool
-    loopAmount = 200;
+    loopAmount = 100;
 elseif loopingN
     loopAmount = 1000;
 else
@@ -35,7 +33,7 @@ if firstIteration
 else
     loopAmountRange = 1:(loopAmount+1);
 end
-interpolation = "cubic";
+interpolation = "sinc";
 
 %{
     Number from the right boundary (quite important, switches between
@@ -48,7 +46,7 @@ interpolation = "cubic";
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = 1;
+numFromBound = -1;
 
 for Nloop = range
     fs = 44100;                 % sample rate
@@ -126,7 +124,7 @@ for Nloop = range
         Ninit = 1/h;
         N = floor(Ninit);
         alf  = Ninit - N;
-        
+        alfSave(i) = alf;
         if interpolation == "none"
             h = 1/N;
         end
@@ -134,6 +132,7 @@ for Nloop = range
         lambdaSq = (cVec(i) * k / h)^2;
         
         if N ~= NPrev
+%             modeToPlot = modeToPlot + 1;
             BFull = zeros(N, N);
             if i~= 1 && firstIteration
                 j = j + 1;
@@ -176,7 +175,7 @@ for Nloop = range
         elseif interpolation == "linear"
             BFull(M, (M+1):(length(u) + 2)) = [alf, (1-alf)];
             BFull(M + 1, (M-1) : M) = [(1-alf), alf];
-        else
+        elseif interpolation == "cubic"
             ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                 (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
                 alf * (alf + 1) * (alf - 2) / -2, ...
@@ -211,7 +210,132 @@ for Nloop = range
                 BFull(M+1, (M + 1):(M + 3)) = BFullInit(M+1, (M + 1):(M + 3)) + ip(3:-1:1) * Ainv(2, 1);
                 BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
             end
+%         elseif interpolation == "customCubic"
+%             ip =  [-(alf*(alf + 1))/((alf + 2)*(alf + 3));
+%                    (2*alf)/(alf + 2);
+%                    2/(alf + 2);
+%                    -(2*alf)/((alf + 2)*(alf + 3))]';
+% %             BFull(M, (M + 1):(M + 3)) = ip(3:-1:1) * Ainv(1, 1);
+%             BFull(M, (M-2 : M+1)) =  BFullInit(M, (M-2) : M+1) + ip(1:4);
+%             BFull(M+1, M:(M + 3)) = BFullInit(M+1, M:(M + 3)) + ip(4:-1:1);
+%             if mod(i, 10) == 0
+%                 plot (ip)
+%                 drawnow;
+%             end
+%             BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
+        elseif interpolation == "sinc"
+%             if alf ~= 0
+                includeUMp1AndWm1 = true;
+%             else
+%                 includeUMp1AndWm1 = false;
+%             end
+            if alf == 0
+                alf = alf + 1e-6;
+            end
+            sincWidth = floor(N / 2) - 1;
+%             sincWidth = 3;
+            alphaBand = 1; % relative bandwidth range
+            bmax = alphaBand*pi;
             
+            if includeUMp1AndWm1
+                xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
+                xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
+            else
+                xUMp1 = (-sincWidth:sincWidth-1)';
+                xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
+            end
+            iLen = length (xUMp1); % length of interpolation (N in stefans implementation)
+            bU = (sin(bmax*xUMp1)./xUMp1);
+            if sum(isnan(bU))
+                bU(isnan(bU)) = bmax;
+            end 
+            distU = xUMp1*ones(1,iLen)-ones(iLen,1)*xUMp1';    % distance matrix between points
+            AU = sin(bmax*distU)./distU;
+            AU(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
+
+            aU = AU\bU; %optimal coefficients
+            
+            if includeUMp1AndWm1
+                xWm1 = [-sincWidth+1:1, 1:sincWidth]';
+                xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
+            else
+                xWm1 = (-sincWidth+1:sincWidth)';
+                xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
+            end
+            bW = (sin(bmax*xWm1)./xWm1);
+            if sum(isnan(bW))
+                bW(isnan(bW)) = bmax;
+            end 
+            distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
+            AW = sin(bmax*distW)./distW;
+            AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
+
+            aW = AW\bW; %optimal coefficients
+%             if mod(i, 100) == 0
+%                 subplot(2,1,1)
+%                 plot (AU)
+%                 subplot(2,1,2)
+%                 plot (AW)
+%                 drawnow;
+%             end
+            if numFromBound == 1
+                BFull(M, M+1) = (aU(3) - aU(1));
+                BFull(M, (M-2 : M)) =  BFullInit(M, (M-2) : M) + aU(1:3)';
+                BFull(M+1, M+1) = BFullInit(M+1, M+1) + (aW(3) - aW(1));
+                BFull(M+1, (M-2 : M)) =  aW(1:3)';
+            else
+%                 BFull(M, (M + 1):(M + 3)) = aU(1:3);
+                if includeUMp1AndWm1
+                    sincRange = (M-sincWidth : M+sincWidth);
+                    BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
+                    BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
+                else
+                    % still need to exclude UM and W0
+                    sincRange =[M-sincWidth:M-1, M+1:M+sincWidth];
+                    BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
+                    BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
+                end
+%                 if mod(i, 1000) == 0
+%                     hold off   
+%                     plot(aU)
+%                     hold on;
+%                     plot(aW)
+%                     drawnow;
+%                 end
+%                 BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
+            end
+        elseif interpolation == "altSinc"
+            alphaBand = 1; % relative bandwidth range
+            bmax = alphaBand*pi / h;
+            
+            xIpLocs = (-alf + (-1:2)) * h;
+            sincIp = sin(bmax * xIpLocs) ./ (bmax * xIpLocs);
+            sincIp(isnan(sincIp)) = 1;
+%             sincIp = fliplr(sincIp);
+            Ainv = inv([1, -sincIp(4); -sincIp(4), 1]);
+            
+            if numFromBound == 1
+                BFull(M, M+1) = (sincIp(3) - sincIp(1)) * Ainv(1, 1);
+                BFull(M, (M-2 : M)) =  BFullInit(M, (M-2) : M) + sincIp(1:3) * Ainv(1, 2);
+                BFull(M+1, M+1) = BFullInit(M+1, M+1) + (sincIp(3) - sincIp(1)) * Ainv(2, 1);
+                BFull(M+1, (M-2 : M)) =  sincIp(1:3) * Ainv(2, 2);
+                
+            else
+                
+                BFull(M, (M + 1):(M + 3)) = sincIp(3:-1:1) * Ainv(1, 1);
+                BFull(M, (M-2 : M)) =  BFullInit(M, (M-2) : M) + sincIp(1:3) * Ainv(1, 2);
+                BFull(M+1, (M + 1):(M + 3)) = BFullInit(M+1, (M + 1):(M + 3)) + sincIp(3:-1:1) * Ainv(2, 1);
+                BFull(M+1, (M-2 : M)) =  sincIp(1:3) * Ainv(2, 2);
+            end            
+            if mod(i, 100) == 0
+                hold off;
+                plot (xIpLocs, sincIp)
+                hold on;
+                plotRange = (min(xIpLocs) : 0.001 : max(xIpLocs));
+                plot (plotRange, sin(bmax * plotRange) ./ (bmax * plotRange))
+                title(alf)
+                drawnow;
+            end
         end
         % imagesc(BFull)
         % drawnow;          
@@ -227,16 +351,19 @@ for Nloop = range
     if addLastPoint && firstIteration
         loopStart(j+1) = loopAmount;
     end
-%         figure
-    hold off;
-    plotModesSave;
+    
+    if firstIteration
+        hold off;
+        plotModesSave;
+    end
+
     drawnow;
 end
-% xData = 1:loopAmount;
-% goodness = zeros(loopNStart, 1);
-% rms = zeros(loopNStart, 1);
-% sse = zeros(loopNStart, 1);
-% 
+xData = 1:loopAmount;
+goodness = zeros(floor(loopNStart), 1);
+rms = zeros(floor(loopNStart), 1);
+sse = zeros(floor(loopNStart), 1);
+
 % figure;
 % for i = 1:loopNStart
 %     [~, got] = fit (xData(~isnan(modesSave(:,i)))', modesSave(~isnan(modesSave(:,i)),i), 'poly1');
