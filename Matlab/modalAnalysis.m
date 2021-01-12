@@ -10,8 +10,8 @@ else
 end
 % figure;
 loopingN = false;
-loopNStart = 25.5; % also use for Ninit an Nend
-loopNend = 15.5;
+loopNStart = 50.0; % also use for Ninit an Nend
+loopNend = 60.0;
 plotModeShapesBool = ~firstIteration;
 
 lowPassConnection = false;
@@ -37,6 +37,14 @@ else
     loopAmountRange = 1:(loopAmount+1);
 end
 interpolation = "sinc";
+
+%{
+    0: fullSinc is false 
+    1: include all moving points
+    2: include boundaries as well
+    3: include virtual grid points
+%}
+fullSinc = 3; 
 
 %{
     Number from the right boundary (quite important, switches between
@@ -76,7 +84,7 @@ for Nloop = range
         h = 1/N;
     end
     
-    lambdaSq = (cInit * k / h)^2
+    lambdaSq = (cInit * k / h)^2;
     
     
     % Create B-matrix
@@ -213,42 +221,38 @@ for Nloop = range
                 BFull(M+1, (M + 1):(M + 3)) = BFullInit(M+1, (M + 1):(M + 3)) + ip(3:-1:1) * Ainv(2, 1);
                 BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
             end
-%         elseif interpolation == "customCubic"
-%             ip =  [-(alf*(alf + 1))/((alf + 2)*(alf + 3));
-%                    (2*alf)/(alf + 2);
-%                    2/(alf + 2);
-%                    -(2*alf)/((alf + 2)*(alf + 3))]';
-% %             BFull(M, (M + 1):(M + 3)) = ip(3:-1:1) * Ainv(1, 1);
-%             BFull(M, (M-2 : M+1)) =  BFullInit(M, (M-2) : M+1) + ip(1:4);
-%             BFull(M+1, M:(M + 3)) = BFullInit(M+1, M:(M + 3)) + ip(4:-1:1);
-%             if mod(i, 10) == 0
-%                 plot (ip)
-%                 drawnow;
-%             end
-%             BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
+            
         elseif interpolation == "sinc"
-%             if alf ~= 0
-                includeUMp1AndWm1 = true;
-%             else
-%                 includeUMp1AndWm1 = false;
-%             end
+            includeUMp1AndWm1 = true;
             if alf < 1e-6
-%                 includeUMp1AndWm1 = false;
                 alf = alf + 1e-6;
             end
-%             sincWidth = floor(N / 2) - 1;
-            sincWidth = 2;
-%             sincWidth = numFromBound+1;
+            
             alphaBand = 1; % relative bandwidth range
             bmax = alphaBand*pi;
             
-            if includeUMp1AndWm1
-                xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
-                xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
-            else
-                xUMp1 = (-sincWidth:sincWidth-1)';
-                xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
+%             sincWidth = 2;
+            sincWidth = floor(N / 2) - 1;
+%             sincWidth = numFromBound+1;
+            if fullSinc == 0
+                if includeUMp1AndWm1
+                    xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
+                    xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
+                else
+                    xUMp1 = (-sincWidth:sincWidth-1)';
+                    xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
+                end
+            elseif fullSinc == 2
+                xUMp1 = (0:N+1)' - M - 1;
+                xUMp1 = xUMp1 + [zeros(M+1, 1); alf * ones(N-M+1, 1) - 1];
+            elseif fullSinc == 3
+                xUMp1 = (-1:N+2)' - M - 1;
+                xUMp1 = xUMp1 + [zeros(M+2, 1); alf * ones(N-M+2, 1) - 1];
+%                 xUMp1 = (-1:N+2)' - M - 2;
+%                 xUMp1 = xUMp1 + [zeros(M+3, 1); alf * ones(N-M+1, 1) - 1];
             end
+            
+            
             iLen = length (xUMp1); % length of interpolation (N in stefans implementation)
             bU = (sin(bmax*xUMp1)./xUMp1);
             if sum(isnan(bU))
@@ -269,12 +273,19 @@ for Nloop = range
 %                 aU(idxAu-1) = 1;
 %                 aU(idxAu) = 1;
 %             end
-            if includeUMp1AndWm1
-                xWm1 = [-sincWidth+1:1, 1:sincWidth]';
-                xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
-            else
-                xWm1 = (-sincWidth+1:sincWidth)';
-                xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
+            if fullSinc == 0
+                if includeUMp1AndWm1
+                    xWm1 = [-sincWidth+1:1, 1:sincWidth]';
+                    xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
+                else
+                    xWm1 = (-sincWidth+1:sincWidth)';
+                    xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
+                end
+            elseif fullSinc == 3
+                xWm1 = (-1:N+2)' - M;
+                xWm1 = xWm1 - [alf * ones(M+2, 1) - 1; zeros(N-M+2, 1)];
+%                 xWm1 = (-1:N+2)' - M;
+%                 xWm1 = xWm1 - [alf * ones(M+3, 1); ones(N-M+1, 1)];
             end
             bW = (sin(bmax*xWm1)./xWm1);
             if sum(isnan(bW))
@@ -283,17 +294,13 @@ for Nloop = range
             distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
             AW = sin(bmax*distW)./distW;
             AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
-%             AW(isnan(AW)) = bmax;
+            AW(isnan(AW)) = bmax;
             aW = AW\bW; %optimal coefficients
-            
-%             if alf == 0
-%                 idxAw = find(round(aW) == 1);
-%                 aW(idxAw+2) = -1;
-%                 aW(idxAw+1) = 1;
-%                 aW(idxAw) = 1;
-%             end
-%             if numFromBound == 1
-            if M + sincWidth == N+1 % use boundary condition
+
+            if fullSinc == 3
+                BFull(M, :) = BFullInit(M, :) + aU(3:end-2)' - [aU(1), zeros(1, length(aU)-6), aU(end)];
+                BFull(M+1, :) = BFullInit(M+1, :) + aW(3:end-2)' - [aW(1), zeros(1, length(aW)-6), aW(end)];
+            elseif M + sincWidth == N+1 % use boundary condition
                 if includeUMp1AndWm1
                     BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
                     BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW(1:end-1)';
