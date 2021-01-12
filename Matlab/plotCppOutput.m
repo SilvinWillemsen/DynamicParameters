@@ -15,11 +15,11 @@ plotState = false;
 k = 1/curFs;
 drawSpeed = 1; 
 
-plotSpectrogram = false;
+plotSpectrogram = true;
 
 % if origVersion == "I"
 %     dynamicString = 0;
-% %     if curFs == 44100
+%   %     if curFs == 44100
 % % %         stateAtI = reshape (stateAt, NSave(1)-1, 1000);
 % %         outputI = output;
 % %     else
@@ -52,7 +52,7 @@ startSample = 0; %should come from freeFree1DWaveConn
 %     pause(0.1)
 %     drawnow;
 % end
-
+startSample = 0;
 if plotState    
     if origVersion == "D" || origVersion == "B"
         for n = 1:4*drawSpeed:length(plotIdxD)
@@ -63,7 +63,9 @@ if plotState
                 if n > length(plotIdxD) * 0.9
                     disp ("wait");
                 end
-                h = cSaveD(round(((n-1)/4) * length(outputD) / (length(plotIdxD)/4))+1) * k;
+                cSaveIdx = ((n-1)/4 + 1);
+%                 h = cSaveD(round(((n-1)/4) * length(outputD) / (length(plotIdxD)/4))+1) * k
+                h = cSaveD(cSaveIdx) * k;
                 hLocsLeft = (1:Mu) * h;
                 hLocsRight = 1 - fliplr((1:Mw) * h);
                 hold off;
@@ -79,8 +81,12 @@ if plotState
 %                 startIdxU = endIdxU + 1;
 %                 startIdxW = endIdxW + 1;
                 title(100 * n/(length(plotIdxD)))
-%                 ylim([-1, 1])
-                pause(0.5);
+                ylim([-1, 1])
+%                 xlim([0.9, 1])
+%                 pause(0.5);
+                if cSaveIdx > 4 && (NSaveD(cSaveIdx) ~= NSaveD(cSaveIdx-4))
+%                     disp("wait");
+                end
                 drawnow;
                 if n == 200 * 4 + 1
                     disp("wait");
@@ -152,8 +158,10 @@ if plotSpectrogram
         subplot(211)
     end
     if origVersion == "I" || origVersion == "B"
-        spectrogram(outputI,512,64,512, curFs)
+        fsRatio = curFs / 44100;
+        spectrogram(outputI,512*fsRatio,64*fsRatio,512*fsRatio, curFs)
         view(90, -90)
+        xlim([0, 22.050])
         title("Interpolation")
     end
 
@@ -161,10 +169,10 @@ if plotSpectrogram
         subplot(212)
     end
     if origVersion == "D" || origVersion == "B"
-        subplot(211)
+%         subplot(211)
         spectrogram(outputD,512,64,512, curFs, 'yaxis');
-        subplot(212)
-        plot(outputD)
+%         subplot(212)
+%         plot(outputD)
         % Create figure
     %     figure1 = figure;
     % 
@@ -197,12 +205,18 @@ if plotSpectrogram
     end
 else
     if curFs == 44100
-        figure('Position', [200, 200, 600, 300])
+        figure('Position', [200, 200, 600, 350])
     end
-    outfftD = fft(outputD);
-%     outfftI = fft(outputI);
-    lengthSound = length(outputD);
-    outfftInDb = 20 * log10(abs(outfftD));
+    if origVersion == "I"
+        outfft = fft(outputI);
+        lengthSound = length(outputI);
+
+    end
+    if origVersion == "D" || origVersion == "B"
+        outfft = fft(outputD);
+        lengthSound = length(outputD);
+    end
+    outfftInDb = 20 * log10(abs(outfft));
     [pks,locs] = findpeaks(outfftInDb, 'Threshold',0.1, 'MinPeakHeight',-10);
     locs = locs - 1;
     triWidth = 500;
@@ -210,20 +224,21 @@ else
     if curFs == 44100
         rangeFFT = 0:lengthSound-1;
         
-        fftPlot44100 = plot(rangeFFT(~isinf(outfftInDb))'*curFs/lengthSound, outfftInDb(~isinf(outfftInDb)), 'b', 'Linewidth', 2);
+        fftPlot44100 = plot(rangeFFT(~isinf(outfftInDb))'*curFs/lengthSound, outfftInDb(~isinf(outfftInDb)), 'k', 'Linewidth', 2);
         locsSave = locs;
         hold on;
         for i = 1:length(locs)
             xTri = [locs(i) locs(i)-triWidth locs(i)-triWidth];%x coordinates of vertices
             yTri = [pks(i) pks(i)-triHeight*0.5 pks(i)+triHeight*0.5];%y coordinates of vertices
-            patch(xTri,yTri,'blue', 'EdgeColor', 'none') %plotting triangle in white color
+            patch(xTri,yTri,'k', 'EdgeColor', 'none') %plotting triangle in white color
         end
     else
-        fftPlot88200 =plot([0:lengthSound-1]'*curFs/lengthSound, 20 * log10(abs(outfftD)),':r', 'Linewidth', 2);
+        greyVal = 0.6;
+        fftPlot88200 =plot([0:lengthSound-1]'*curFs/lengthSound, 20 * log10(abs(outfft)), ':', 'color', [greyVal, greyVal, greyVal], 'Linewidth', 2);
         for i = 1:length(locs)
             xTri = [locs(i) locs(i)+triWidth locs(i)+triWidth];%x coordinates of vertices
             yTri = [pks(i) pks(i)-triHeight*0.5 pks(i)+triHeight*0.5];%y coordinates of vertices
-            patch(xTri,yTri,'red', 'EdgeColor', 'none') %plotting triangle in white color
+            patch(xTri,yTri, [greyVal, greyVal, greyVal],  'EdgeColor', 'none') %plotting triangle in white color
         end
 
     end

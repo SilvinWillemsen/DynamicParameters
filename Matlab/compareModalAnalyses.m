@@ -22,7 +22,7 @@ Dxxw = (sparse(2:Mw, 1:Mw-1, ones(1, Mw-1), Mw, Mw) + ...
 BFull((M+1):end, (M+1):end) = 2 * eye(Mw) + Dxxw;
 
 alf = 0.5;
-Ainv = inv([1, 0; 0, 1]);
+% Ainv = inv([1, 0; 0, 1]);
 %connect the two
 ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                     (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
@@ -57,6 +57,8 @@ uNext = zeros(N, 1);
 v = zeros(N-1, 1);
 % v = rand(N-1, 1)-0.5;
 % v(3:7) = hann(5);
+v(3:4) = 0.75;
+
 vPrev = v;
 vNext = zeros(N-1, 1);
 N = N-1;
@@ -71,9 +73,9 @@ outu = zeros(lengthSound, 1);
 outw = zeros(lengthSound, 1);
 
 drawstuff = true;
-plot(sort(1/(2 * pi * k) * acos (1/2 * eig(Bnormal))));
-hold on;
-plot(real(sort(1/(2 * pi * k) * acos (1/2 * eig(BFull)))));
+% plot(sort(1/(2 * pi * k) * acos (1/2 * eig(Bnormal))));
+% hold on;
+% plot(real(sort(1/(2 * pi * k) * acos (1/2 * eig(BFull)))));
 % figure
 for n = 1:lengthSound
     uNext = BFull * u - uPrev;
@@ -91,8 +93,8 @@ for n = 1:lengthSound
         hold off
         plot(1:M, u(1:M), 'o--');
         hold on;
-        plot(M:N-1, u(M+1:end), 'x--');
-        plot(1:N-1, v);
+        plot((M:N-1) + alf, u(M+1:end), 'x--');
+%         plot(1:N-1, v);
         pause(0.5);
         drawnow;
         if n == 200

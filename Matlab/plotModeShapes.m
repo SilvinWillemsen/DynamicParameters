@@ -19,34 +19,29 @@ end
 subplotIdx = 1;
 hold off;
 for J = loopRange
-%     if length(loopRange) <= limSubplots
-%         subplot (length(loopRange), 1, subplotIdx);
-%         subplotIdx = subplotIdx + 1;
-%     end
     subplot(1, 2, 1)
-    plot(rangeToPlot, [0; sign(W(1, order(J))) * W(:,order(J)); zeroPad], 'Linewidth', 2)
+    hold off;
+    plot(rangeToPlot, [0; sign(W(1, order(J))) * W(:,order(J)); zeroPad], '-o', 'Linewidth', 2)
+    hold on;
+    scatter(rangeToPlot(end-1), sign(W(1, order(J))) * W(end - (1 - length(zeroPad)), order(J)), 200, 'r', 'Linewidth', 1)
     grid on
-%     if length(loopRange) > limSubplots
-% %         hold on;
-%     end
-    ylim([-0.6, 0.6])
+
+    ylim([-1, 1]);
     set(gca, 'Linewidth', 2, 'Fontsize', 14)
-    title("Modal Shapes: N = " + num2str(Ninit) + "   Eigen value " + num2str(J) + " = " + ...
-        num2str(round(1/(2 * pi * k) * acos (1/2 * D(order(J)))) ...
-        + " Hz"), 'Fontsize', 14);
+    title("Modal Shape of Eigenvalue " + num2str(J), 'Fontsize', 14);
 
     subplot(1, 2, 2)
     hold off;
 
-    plot(([i, i]-1) * 10000 / loopAmount, [0, fs/2], '--', 'color', [0.5, 0.5, 0.5], 'Linewidth', 2)
+    plot(([i, i]-1) * 10000 / loopAmount, [1400, fs/2], '--', 'color', [0.5, 0.5, 0.5], 'Linewidth', 2)
     hold on;
     plotModesSave;
     hold on;
     scatter((i-1) * 10000 / loopAmount, 1/(2*pi*k) * acos(1/2 * D(order(J))), 40, 'k', 'Marker', 'o', 'Linewidth', 2)
-    
+    text(i * 10000 / loopAmount, 600, "$N = " + num2str(Ninit, 4) + "$",  "horizontalAlignment", 'center', 'interpreter', 'latex', 'Fontsize', 16);
     drawnow;
     
-%     if length(loopRange) > limSubplots || modeToPlot == -1
+%     if modeToPlot == -1
 %         pause(0.5);
 %     end
 end

@@ -10,9 +10,12 @@ else
 end
 % figure;
 loopingN = false;
-loopNStart = 15.0; % also use for Ninit an Nend
-loopNend = 25.0;
+loopNStart = 25.5; % also use for Ninit an Nend
+loopNend = 15.5;
 plotModeShapesBool = ~firstIteration;
+
+lowPassConnection = false;
+lpExponent = 30;
 
 modeToPlot = 8; % if -1 plot all modes
 limSubplots = 3;
@@ -229,11 +232,13 @@ for Nloop = range
 %             else
 %                 includeUMp1AndWm1 = false;
 %             end
-            if alf == 0
+            if alf < 1e-6
+%                 includeUMp1AndWm1 = false;
                 alf = alf + 1e-6;
             end
-            sincWidth = floor(N / 2) - 1;
-%             sincWidth = 3;
+%             sincWidth = floor(N / 2) - 1;
+            sincWidth = 2;
+%             sincWidth = numFromBound+1;
             alphaBand = 1; % relative bandwidth range
             bmax = alphaBand*pi;
             
@@ -247,14 +252,23 @@ for Nloop = range
             iLen = length (xUMp1); % length of interpolation (N in stefans implementation)
             bU = (sin(bmax*xUMp1)./xUMp1);
             if sum(isnan(bU))
-                bU(isnan(bU)) = bmax;
+                idxIsNan = find(isnan(bU));
+%                 bU(idxIsNan-2) = -bmax;
+%                 bU(idxIsNan-1) = -bmax;
+                bU(idxIsNan) = bmax;
+
             end 
             distU = xUMp1*ones(1,iLen)-ones(iLen,1)*xUMp1';    % distance matrix between points
             AU = sin(bmax*distU)./distU;
             AU(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
-
+%             AU(isnan(AU)) = bmax;
             aU = AU\bU; %optimal coefficients
-            
+%             if alf == 0
+%                 idxAu = find(round(aU) == 1);
+%                 aU(idxAu-2) = -1;
+%                 aU(idxAu-1) = 1;
+%                 aU(idxAu) = 1;
+%             end
             if includeUMp1AndWm1
                 xWm1 = [-sincWidth+1:1, 1:sincWidth]';
                 xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
@@ -269,20 +283,32 @@ for Nloop = range
             distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
             AW = sin(bmax*distW)./distW;
             AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
-
+%             AW(isnan(AW)) = bmax;
             aW = AW\bW; %optimal coefficients
-%             if mod(i, 100) == 0
-%                 subplot(2,1,1)
-%                 plot (AU)
-%                 subplot(2,1,2)
-%                 plot (AW)
-%                 drawnow;
+            
+%             if alf == 0
+%                 idxAw = find(round(aW) == 1);
+%                 aW(idxAw+2) = -1;
+%                 aW(idxAw+1) = 1;
+%                 aW(idxAw) = 1;
 %             end
-            if numFromBound == 1
-                BFull(M, M+1) = (aU(3) - aU(1));
-                BFull(M, (M-2 : M)) =  BFullInit(M, (M-2) : M) + aU(1:3)';
-                BFull(M+1, M+1) = BFullInit(M+1, M+1) + (aW(3) - aW(1));
-                BFull(M+1, (M-2 : M)) =  aW(1:3)';
+%             if numFromBound == 1
+            if M + sincWidth == N+1 % use boundary condition
+                if includeUMp1AndWm1
+                    BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
+                    BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW(1:end-1)';
+                else
+                    BFull(M, M-sincWidth+2:end) = BFullInit(M, M-sincWidth+2:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
+                    BFull(M+1, (M-sincWidth: end-1)) = BFullInit(M+1, (M-sincWidth: end-1)) + aW(1:end-1)';
+                end
+            elseif M + sincWidth == N % use boundary condition
+                if includeUMp1AndWm1
+                    BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-1)';
+                    BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW';
+                else
+                    BFull(M, M-sincWidth+2:end) = BFullInit(M, M-sincWidth+2:end) + aU(1:end-1)';
+                    BFull(M+1, (M-sincWidth: end-1)) = BFullInit(M+1, (M-sincWidth: end-1)) + aW';
+                end
             else
 %                 BFull(M, (M + 1):(M + 3)) = aU(1:3);
                 if includeUMp1AndWm1
@@ -290,20 +316,34 @@ for Nloop = range
                     BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
                     BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
                 else
-                    % still need to exclude UM and W0
                     sincRange =[M-sincWidth:M-1, M+1:M+sincWidth];
                     BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
                     BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
                 end
-%                 if mod(i, 1000) == 0
+%                 if  mod(i, 100) == 0 && i>0 
 %                     hold off   
 %                     plot(aU)
 %                     hold on;
 %                     plot(aW)
+% %                     pause(0.5)
+%                     title(alf)
+%                     ylim([-1,1])
 %                     drawnow;
 %                 end
 %                 BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
             end
+            if lowPassConnection
+                lpVec = 0.5 * [-(1-alf)^(lpExponent), (1-alf)^(lpExponent)];
+                BFull(M, M:M+1) = BFull(M, M:M+1) + lpVec;
+                BFull(M+1, M:M+1) = BFull(M+1, M:M+1) - lpVec;
+            end
+%             if mod(i, 1) == 0
+%                 subplot(2,1,1)
+%                 plot (aU)
+%                 subplot(2,1,2)
+%                 plot (aW)
+%                 drawnow;
+%             end
         elseif interpolation == "altSinc"
             alphaBand = 1; % relative bandwidth range
             bmax = alphaBand*pi / h;
