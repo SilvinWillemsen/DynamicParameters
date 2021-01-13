@@ -1,4 +1,4 @@
-close all;
+% close all;
 firstIteration = true;
 
 if firstIteration
@@ -8,13 +8,13 @@ else
     figure('Position', [200, 200, 1200, 450])
     set(gcf, 'color', 'w');
 end
-% figure;
+figure;
 loopingN = false;
-loopNStart = 50.0; % also use for Ninit an Nend
-loopNend = 60.0;
+loopNStart = 50; % also use for Ninit an Nend
+loopNend = 20;
 plotModeShapesBool = ~firstIteration;
 
-lowPassConnection = false;
+lowPassConnection = true;
 lpExponent = 30;
 
 modeToPlot = 8; % if -1 plot all modes
@@ -39,12 +39,14 @@ end
 interpolation = "sinc";
 
 %{
+Decides whether to use the full range or not 
     0: fullSinc is false 
     1: include all moving points
     2: include boundaries as well
     3: include virtual grid points
 %}
-fullSinc = 3; 
+fullSinc = 0;
+fSCentered = true; % "true" only works if numFromBound == -1
 
 %{
     Number from the right boundary (quite important, switches between
@@ -57,7 +59,7 @@ fullSinc = 3;
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = -1;
+numFromBound = 1;
 
 for Nloop = range
     fs = 44100;                 % sample rate
@@ -232,8 +234,12 @@ for Nloop = range
             bmax = alphaBand*pi;
             
 %             sincWidth = 2;
-            sincWidth = floor(N / 2) - 1;
-%             sincWidth = numFromBound+1;
+            if numFromBound == -1
+                sincWidth = floor(N / 2) - 1;
+                sincWidth = 2;
+            else
+                sincWidth = numFromBound+1;
+            end
             if fullSinc == 0
                 if includeUMp1AndWm1
                     xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
@@ -242,6 +248,9 @@ for Nloop = range
                     xUMp1 = (-sincWidth:sincWidth-1)';
                     xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
                 end
+            elseif fullSinc == 1
+                xUMp1 = (1:N)' - M - 1;
+                xUMp1 = xUMp1 + [zeros(M, 1); alf * ones(N-M, 1) - 1];
             elseif fullSinc == 2
                 xUMp1 = (0:N+1)' - M - 1;
                 xUMp1 = xUMp1 + [zeros(M+1, 1); alf * ones(N-M+1, 1) - 1];
@@ -251,7 +260,9 @@ for Nloop = range
 %                 xUMp1 = (-1:N+2)' - M - 2;
 %                 xUMp1 = xUMp1 + [zeros(M+3, 1); alf * ones(N-M+1, 1) - 1];
             end
-            
+            if numFromBound == -1 && fSCentered && fullSinc ~= 0
+                xUMp1 = xUMp1(2:end);
+            end
             
             iLen = length (xUMp1); % length of interpolation (N in stefans implementation)
             bU = (sin(bmax*xUMp1)./xUMp1);
@@ -274,6 +285,8 @@ for Nloop = range
 %                 aU(idxAu) = 1;
 %             end
             if fullSinc == 0
+                aW = flipud(aU);
+
                 if includeUMp1AndWm1
                     xWm1 = [-sincWidth+1:1, 1:sincWidth]';
                     xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
@@ -281,25 +294,67 @@ for Nloop = range
                     xWm1 = (-sincWidth+1:sincWidth)';
                     xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
                 end
+            elseif fullSinc == 1
+                xWm1 = (1:N)' - M;
+                xWm1 = xWm1 - [alf * ones(M, 1) - 1; zeros(N-M, 1)];
+            elseif fullSinc == 2
+                xWm1 = (0:N+1)' - M;
+                xWm1 = xWm1 - [alf * ones(M+1, 1) - 1; zeros(N-M+1, 1)];
+
             elseif fullSinc == 3
                 xWm1 = (-1:N+2)' - M;
                 xWm1 = xWm1 - [alf * ones(M+2, 1) - 1; zeros(N-M+2, 1)];
 %                 xWm1 = (-1:N+2)' - M;
 %                 xWm1 = xWm1 - [alf * ones(M+3, 1); ones(N-M+1, 1)];
             end
-            bW = (sin(bmax*xWm1)./xWm1);
-            if sum(isnan(bW))
-                bW(isnan(bW)) = bmax;
-            end 
-            distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
-            AW = sin(bmax*distW)./distW;
-            AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
-            AW(isnan(AW)) = bmax;
-            aW = AW\bW; %optimal coefficients
+            if numFromBound == -1 && fSCentered && fullSinc ~= 0
+                xWm1 = xWm1(1:end-1);
+            end
+            if fullSinc ~= 0
+                bW = (sin(bmax*xWm1)./xWm1);
+                if sum(isnan(bW))
+                    bW(isnan(bW)) = bmax;
+                end 
+                distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
+                AW = sin(bmax*distW)./distW;
+                AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
+                AW(isnan(AW)) = bmax;
+                aW = AW\bW; %optimal coefficients
+            end
+            
+            
+%             if mod(i, 10) == 0
+%                 hold off;
+%                 plot(xUMp1 + M + 1, bU)
+%                 hold on;
+%                 uRange = min(xUMp1):0.001:max(xUMp1);
+%                 plot (uRange + M + 1, sin(bmax*uRange)./(uRange));
+%                 
+%                 plot(xWm1 + M - 1, bW)
+%                 wRange = min(xWm1):0.001:max(xWm1);
+%                 plot (wRange + M - 1, sin(bmax*wRange)./(wRange));
+%                 drawnow;
+%             end
+            
+            if numFromBound == -1 && fSCentered
+                inputRange1 = 2:N;
+                inputRange2 = 1:N-1;
 
-            if fullSinc == 3
-                BFull(M, :) = BFullInit(M, :) + aU(3:end-2)' - [aU(1), zeros(1, length(aU)-6), aU(end)];
-                BFull(M+1, :) = BFullInit(M+1, :) + aW(3:end-2)' - [aW(1), zeros(1, length(aW)-6), aW(end)];
+            else
+                inputRange1 = 1:N;
+                inputRange2 = 1:N;
+
+            end
+            if fullSinc == 1
+                BFull(M, inputRange1) = BFullInit(M, inputRange1) + aU';
+                BFull(M+1, inputRange2) = BFullInit(M+1, inputRange2) + aW';
+            elseif fullSinc == 2
+                BFull(M, inputRange1) = BFullInit(M, inputRange1) + aU(2:end-1)';
+                BFull(M+1, inputRange2) = BFullInit(M+1, inputRange2) + aW(2:end-1)';
+    
+            elseif fullSinc == 3
+                BFull(M, inputRange1) = BFullInit(M, inputRange1) + aU(3:end-2)' - [aU(1), zeros(1, length(aU)-6), aU(end)];
+                BFull(M+1, inputRange2) = BFullInit(M+1, inputRange2) + aW(3:end-2)' - [aW(1), zeros(1, length(aW)-6), aW(end)];
             elseif M + sincWidth == N+1 % use boundary condition
                 if includeUMp1AndWm1
                     BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
@@ -406,11 +461,11 @@ for Nloop = range
 
     drawnow;
 end
-xData = 1:loopAmount;
-goodness = zeros(floor(loopNStart), 1);
-rms = zeros(floor(loopNStart), 1);
-sse = zeros(floor(loopNStart), 1);
-
+% xData = 1:loopAmount;
+% goodness = zeros(floor(loopNStart), 1);
+% rms = zeros(floor(loopNStart), 1);
+% sse = zeros(floor(loopNStart), 1);
+% 
 % figure;
 % for i = 1:loopNStart
 %     [~, got] = fit (xData(~isnan(modesSave(:,i)))', modesSave(~isnan(modesSave(:,i)),i), 'poly1');

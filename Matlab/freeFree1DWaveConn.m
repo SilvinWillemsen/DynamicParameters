@@ -1,10 +1,10 @@
 clear all;
-close all;
+% close all;
 clc;
 
 setting = false; % true is drawing, false is sound
 
-drawSpeed = 1;
+drawSpeed = 10;
 if drawSpeed == 1
     drawSpeedMod = 0;
 else 
@@ -14,16 +14,26 @@ fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
 
 lpConnection = true;
-lpExponent = 30;
+lpExponent = 27;
 
-drawStart = 0;
+drawStart = 1.57*fs;
 drawThings = setting;
 excite = true;
 
-numFromBound = 1;
+numFromBound = -1;
+
+%{
+Decides whether to use the full range or not 
+    0: fullSinc is false 
+    1: include all moving points
+    2: include boundaries as well
+    3: include virtual grid points
+%}
+fullSinc = 3; 
+fSCentered = false; % only works if numFromBound == -1
 
 % if setting
-    lengthSound = fs * 2;       % Length of the simulation
+    lengthSound = fs * 1;       % Length of the simulation
 % else
 %     lengthSound = fs * 1.5;
 % end
@@ -31,12 +41,12 @@ numFromBound = 1;
 startSample = 0;
 
 changeC = true; % set to true for dynamic changes in wavespeed
-sinusoidalChange = true;
-freq = 15;
+sinusoidalChange = false;
+freq = 2;
 
-Ninit = 25.0 * fs / 44100;           % edit how many points you want
+Ninit = 50 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-Nend = 55.0 * fs / 44100;
+Nend = 40 * fs / 44100;
 cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
@@ -70,7 +80,7 @@ if excite
     u(raisedCosStart : raisedCosEnd) = 0.5 * (1 - cos (2.0 * pi * ((raisedCosStart:raisedCosEnd)-raisedCosStart) / width));
 %     testPoint = floor(Ninit * 0.3 / 2);
 %     u(floor(N/3.14)-testPoint:floor(N/3.14)+testPoint) = hann(testPoint * 2 + 1); % use hann window for excitation
-%     u(end) = 1;
+%     u(end-1) = 1;
 end
 % u = rand(length(u), 1);
 uPrev = u;
@@ -251,19 +261,37 @@ for n = 1:lengthSound
         end
         alfSave(n) = alf;
 
-%         sincWidth = floor(N / 2) - 1;
-%         sincWidth = numFromBound + 1;
+        if numFromBound == -1
+            sincWidth = floor(N / 2);
+        else
+            sincWidth = numFromBound + 1;
+        end
         sincWidth = 2;
         alphaBand = 1; % relative bandwidth range
         bmax = alphaBand*pi;
 
-        if includeUMp1AndWm1
-            xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
-            xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
-        else
-            xUMp1 = (-sincWidth:sincWidth-1)';
-            xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
+        if fullSinc == 0
+            if includeUMp1AndWm1
+                xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
+                xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
+            else
+                xUMp1 = (-sincWidth:sincWidth-1)';
+                xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
+            end
+        elseif fullSinc == 1
+            xUMp1 = (1:N)' - M - 1;
+            xUMp1 = xUMp1 + [zeros(M, 1); alf * ones(N-M, 1) - 1];
+        elseif fullSinc == 2
+            xUMp1 = (0:N+1)' - M - 1;
+            xUMp1 = xUMp1 + [zeros(M+1, 1); alf * ones(N-M+1, 1) - 1];
+        elseif fullSinc == 3
+            xUMp1 = (-1:N+2)' - M - 1;
+            xUMp1 = xUMp1 + [zeros(M+2, 1); alf * ones(N-M+2, 1) - 1];
         end
+        if numFromBound == -1 && fSCentered && fullSinc ~= 0
+            xUMp1 = xUMp1(2:end);
+        end
+            
         iLen = length (xUMp1); % length of interpolation (N in stefans implementation)
         bU = (sin(bmax*xUMp1)./xUMp1);
         if sum(isnan(bU))
@@ -287,26 +315,42 @@ for n = 1:lengthSound
 %         end
 
 %% no need to recalculate for aW. We can just invert aU
-%         if includeUMp1AndWm1
-%             xWm1 = [-sincWidth+1:1, 1:sincWidth]';
-%             xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
-%         else
-%             xWm1 = (-sincWidth+1:sincWidth)';
-%             xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
-%         end
-%         bW = (sin(bmax*xWm1)./xWm1);
-%         if sum(isnan(bW))
-%             bW(isnan(bW)) = bmax;
-%         end 
-%         distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
-%         AW = sin(bmax*distW)./distW;
-%         AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
-% %             AW(isnan(AW)) = bmax;
-%         aW = AW\bW; %optimal coefficients
-%         
-        aW = flipud(aU);
+        if includeUMp1AndWm1
+            xWm1 = [-sincWidth+1:1, 1:sincWidth]';
+            xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
+        else
+            xWm1 = (-sincWidth+1:sincWidth)';
+            xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
+        end
+        if fullSinc == 0
+%             aW = flipud(aU);
+            sincRange = (M-sincWidth : M+sincWidth);
+        elseif fullSinc == 1
+            xWm1 = (1:N)' - M;
+            xWm1 = xWm1 - [alf * ones(M, 1) - 1; zeros(N-M, 1)];
+        elseif fullSinc == 2
+            xWm1 = (0:N+1)' - M;
+            xWm1 = xWm1 - [alf * ones(M+1, 1) - 1; zeros(N-M+1, 1)];
 
-        sincRange = (M-sincWidth : M+sincWidth);
+        elseif fullSinc == 3
+            xWm1 = (-1:N+2)' - M;
+            xWm1 = xWm1 - [alf * ones(M+2, 1) - 1; zeros(N-M+2, 1)];
+        end
+        if numFromBound == -1 && fSCentered && fullSinc ~= 0
+            xWm1 = xWm1(1:end-1);
+        end
+%         if fullSinc ~= 0
+        bW = (sin(bmax*xWm1)./xWm1);
+        if sum(isnan(bW))
+            bW(isnan(bW)) = bmax;
+        end
+        distW = xWm1*ones(1,iLen)-ones(iLen,1)*xWm1';    % distance matrix between points
+        AW = sin(bmax*distW)./distW;
+        AW(1+(iLen+1)*[0:iLen-1]') = bmax;         % collection of sinc functions with centers at grid point locations
+        AW(isnan(AW)) = bmax;
+        aW = AW\bW; %optimal coefficients
+%         end
+
     else
         ip = [0, (1-alf), alf, 0];
     end
@@ -333,8 +377,22 @@ for n = 1:lengthSound
                                             ip(1) * u(end-2) + ip(2) * u(end-1) + ip(3) * u(end)];
         end
     elseif interpol == "sinc"
+        if numFromBound == -1 && fSCentered
+            inputRange1 = 2:N;
+            inputRange2 = 1:N-1;
+        else
+            inputRange1 = 1:N;
+            inputRange2 = 1:N;
+        end
         curState = [u; w];
-        if M + sincWidth == N+1 % use boundary condition
+        if fullSinc == 1
+            interpolatedPoints = [aU' * curState(inputRange1); aW' * curState(inputRange2)];
+        elseif fullSinc == 2
+            interpolatedPoints = [aU(2:end-1)' * curState(inputRange1); aW(2:end-1)' * curState(inputRange2)];
+        elseif fullSinc == 3
+            interpolatedPoints = [(aU(3:end-2)' - [aU(1), zeros(1, length(aU) - 6), aU(end)]) * curState(inputRange1);...
+                (aW(3:end-2)' - [aW(1), zeros(1, length(aW) - 6), aW(end)]) * curState(inputRange2)];
+        elseif M + sincWidth == N+1 % use boundary condition
             if includeUMp1AndWm1
                 interpolatedPoints = [(aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)]) * curState(M-sincWidth+1:end);...
                                        aW(1:end-1)' * curState(M-sincWidth : end)];
