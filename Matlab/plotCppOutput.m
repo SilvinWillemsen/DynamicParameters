@@ -8,12 +8,12 @@ if loadFiles
 end
 
 if curFs == 44100
-    close all;
+%     close all;
 end
 
 plotState = false;
 k = 1/curFs;
-drawSpeed = 1; 
+drawSpeed = 100; 
 
 plotSpectrogram = true;
 

@@ -8,18 +8,42 @@ else
     loopStartRange1 = 1:length(loopStart);
 
 end
+if interpolation == "cubic" && plotMulti
+    hold on;
+end
+if interpolation == "sinc" && plotMulti && fullSinc ~= 0
+    hold on;
+end
 h = plot(real(modesSave(modesSaveRange, :)));
 
-colours = [];
-for colLoop = 1:floor(maxNumberOfPoints)
-    if mod(colLoop,2) == 0
-        colours = [colours; 0,0,1];
-    else
-        colours = [colours; 1,0,0];
+if ~plotMulti
+    colours = [];
+    for colLoop = 1:floor(maxNumberOfPoints)
+        if mod(colLoop,2) == 0
+            colours = [colours; 0,0,1];
+        else
+            colours = [colours; 1,0,0];
+        end
+    end
+    %     figure
+    set(h, {'color', 'Linewidth'}, [num2cell(colours, 2), num2cell(2 * ones(floor(maxNumberOfPoints), 1))])
+else
+    if interpolation == "linear"
+        set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.5, 0.5, 0.5]}, {1}, {'--'}]);
+    elseif interpolation == "cubic"
+        set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.1, 0.1, 0.1]}, {1}, {'-'}]);
+    elseif interpolation == "sinc"
+        if fullSinc == 0
+            set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.8, 0.8, 0.8]}, {1}, {'-'}]);
+        elseif fullSinc == 1
+            set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.8, 0.8, 0.8]}, {1}, {'-'}]);
+        elseif fullSinc == 2
+            set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.6, 0.6, 0.6]}, {1}, {'-'}]);
+        elseif fullSinc == 3
+            set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.4, 0.4, 0.4]}, {1}, {'-'}]);
+        end
     end
 end
-%     figure
-set(h, {'color', 'Linewidth'}, [num2cell(colours, 2), num2cell(2 * ones(floor(maxNumberOfPoints), 1))])
 title ("Modal Analysis $N = " + loopNStart + " \rightarrow" + loopNend + "$", 'interpreter', 'latex');
 xlabelsave = num2cell(NinitSave:sign(Nend-NinitSave):Nend);
 set(gca, 'Linewidth', 2, 'Fontsize', 16, 'XTick', loopStart(loopStartRange1), 'xticklabel', xlabelsave, 'TickLabelInterpreter', 'latex')

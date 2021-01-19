@@ -30,7 +30,7 @@ Decides whether to use the full range or not
     3: include virtual grid points
 %}
 fullSinc = 3; 
-fSCentered = false; % only works if numFromBound == -1
+fSCentered = false; % "true" only works if numFromBound == -1
 
 % if setting
     lengthSound = fs * 1;       % Length of the simulation
@@ -364,8 +364,13 @@ for n = 1:lengthSound
     if lpConnection
         diffAtConn = w(1) - u(end);
         diffAtConnPrev = wPrev(1) - uPrev(end);
-        u(end) = u(end) + (1-alf)^lpExponent * diffAtConn * 0.5;
-        w(1) = w(1) - (1-alf)^lpExponent * diffAtConn * 0.5;
+        lpVec = 0.5 * diffAtConn * [-(1-alf)^lpExponent, (1-alf)^lpExponent];
+%         lpVec = 0.5 * diffAtConn * [-cos((alf) * pi/2)^lpExponent, cos((alf) * pi/2)^lpExponent];
+
+%         u(end) = u(end) + (1-alf)^lpExponent * diffAtConn * 0.5;
+%         w(1) = w(1) - (1-alf)^lpExponent * diffAtConn * 0.5;
+        u(end) = u(end) + lpVec(2);
+        w(1) = w(1) + lpVec(1);
     end
     
     if interpol == "cubic"

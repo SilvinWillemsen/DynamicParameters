@@ -1,5 +1,5 @@
 clear all;
-interpOrder = 3;
+interpOrder = 4;
 symsVec = {};
 for i = 0:interpOrder
     string = "I" + num2str(i);
@@ -25,11 +25,15 @@ syms alpha xLoc xLocs;
 % xLocs((length(xLocs) / 2) + 2 : end) = xLocs((length(xLocs) / 2) + 2 : end) - 1 + alpha;
 
 %% test 7 jan
-halfI = (interpOrder + 1) / 2;
-xLoc = halfI + 0*alpha;
-xLocs = 0:interpOrder + 0*alpha;
-xLocs = xLocs + [zeros(1, halfI) * alpha, alpha * ones(1, halfI)];
+% halfI = (interpOrder + 1) / 2;
+% xLoc = halfI + 0*alpha;
+% xLocs = 0:interpOrder + 0*alpha;
+% xLocs = xLocs + [zeros(1, halfI) * alpha, alpha * ones(1, halfI)];
 
+%% alt Cubic
+xLoc = 2 + 0*alpha;
+xLocs = (0:4) + 0*alpha;
+xLocs = xLocs + [0,0, ones(1, 3) * (alpha - 1)];
 for i = 1:interpOrder+1
     for k = 1 : interpOrder+1
         if k ~= i

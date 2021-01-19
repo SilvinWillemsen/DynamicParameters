@@ -10,11 +10,11 @@ else
 end
 figure;
 loopingN = false;
-loopNStart = 50; % also use for Ninit an Nend
+loopNStart = 15; % also use for Ninit an Nend
 loopNend = 20;
 plotModeShapesBool = ~firstIteration;
 
-lowPassConnection = true;
+lowPassConnection = false;
 lpExponent = 30;
 
 modeToPlot = 8; % if -1 plot all modes
@@ -36,8 +36,8 @@ if firstIteration
 else
     loopAmountRange = 1:(loopAmount+1);
 end
-interpolation = "sinc";
-
+interpolation = "quartic";
+plotMulti = false;
 %{
 Decides whether to use the full range or not 
     0: fullSinc is false 
@@ -59,7 +59,7 @@ fSCentered = true; % "true" only works if numFromBound == -1
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = 1;
+numFromBound = -1;
 
 for Nloop = range
     fs = 44100;                 % sample rate
@@ -186,8 +186,13 @@ for Nloop = range
             BFull(1:N, 1:N) = 2 * eye(N) + lambdaSq * Dxxu;
             
         elseif interpolation == "linear"
-            BFull(M, (M+1):(length(u) + 2)) = [alf, (1-alf)];
-            BFull(M + 1, (M-1) : M) = [(1-alf), alf];
+            if numFromBound == 1
+                BFull(M, M+1) = alf;
+                BFull(M + 1, M-1 : M) = [(1-alf), alf];
+            else
+                BFull(M, (M+1):(M + 2)) = [alf, (1-alf)];
+                BFull(M + 1, (M-1) : M) = [(1-alf), alf];
+            end
         elseif interpolation == "cubic"
             ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                 (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
@@ -223,7 +228,40 @@ for Nloop = range
                 BFull(M+1, (M + 1):(M + 3)) = BFullInit(M+1, (M + 1):(M + 3)) + ip(3:-1:1) * Ainv(2, 1);
                 BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
             end
-            
+        elseif interpolation == "altCubic"
+            ip = [(alf - 1) / (alf + 2), ...
+                 (alf + 1) / 2, ...
+                1-alf, ...
+                alf * (alf - 1) / (2 * (alf + 2))];
+            if numFromBound == 2
+                BFull(M, M:(M + 2)) = BFullInit(M, M:(M + 2)) + ip(1:3);
+                BFull(M+1, (M-2):(M+1)) = BFullInit(M+1, (M-2):(M+1)) + fliplr(ip);
+            elseif numFromBound == 1
+                BFull(M, M:(M + 1)) = BFullInit(M, M:(M + 1)) + ip(1:2) - [0, ip(4)];
+                BFull(M+1, (M-2):(M+1)) = BFullInit(M+1, (M-2):(M+1)) + fliplr(ip);
+            elseif numFromBound == 0
+                disp ("undefined");
+            else
+                BFull(M, M:(M + 3)) = BFullInit(M, M:(M + 3)) + ip;
+                BFull(M+1, (M-2):(M+1)) = BFullInit(M+1, (M-2):(M+1)) + fliplr(ip);
+            end 
+%             BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
+        elseif interpolation == "quartic"
+            ip = [-(alf*(alf - 1))/((alf + 2)*(alf + 3)), ...
+                (2*(alf - 1))/(alf + 2), ...
+                1, ...
+                -(2*(alf - 1))/(alf + 2), ...
+                (alf*(alf - 1))/((alf + 2)*(alf + 3))];
+            if numFromBound == 2
+                BFull(M, (M-1):(M + 2)) = BFullInit(M, (M-1):(M + 2)) + ip(1:4);
+                BFull(M+1, (M-2):(M+2)) = BFullInit(M+1, (M-2):(M+2)) + fliplr(ip);
+            elseif numFromBound == 1
+                BFull(M, (M-1):(M + 1)) = BFullInit(M, (M-1):(M + 1)) + ip(1:3) - [0, 0, ip(5)];
+                BFull(M+1, (M-2):(M+1)) = BFullInit(M+1, (M-2):(M+1)) + fliplr(ip(2:5));
+            else
+                BFull(M, (M-1):(M + 3)) = BFullInit(M, (M-1):(M + 3)) + ip;
+                BFull(M+1, (M-2):(M+2)) = BFullInit(M+1, (M-2):(M+2)) + fliplr(ip);
+            end
         elseif interpolation == "sinc"
             includeUMp1AndWm1 = true;
             if alf < 1e-6
@@ -394,11 +432,6 @@ for Nloop = range
 %                 end
 %                 BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
             end
-            if lowPassConnection
-                lpVec = 0.5 * [-(1-alf)^(lpExponent), (1-alf)^(lpExponent)];
-                BFull(M, M:M+1) = BFull(M, M:M+1) + lpVec;
-                BFull(M+1, M:M+1) = BFull(M+1, M:M+1) - lpVec;
-            end
 %             if mod(i, 1) == 0
 %                 subplot(2,1,1)
 %                 plot (aU)
@@ -438,6 +471,12 @@ for Nloop = range
                 title(alf)
                 drawnow;
             end
+        end
+        if lowPassConnection
+%                 lpVec = 0.5 * [-(1-alf)^(lpExponent), (1-alf)^(lpExponent)];
+            lpVec = 0.5 * [-cos((alf) * pi/2)^lpExponent, cos((alf) * pi/2)^lpExponent];
+            BFull(M, M:M+1) = BFull(M, M:M+1) + lpVec;
+            BFull(M+1, M:M+1) = BFull(M+1, M:M+1) - lpVec;
         end
         % imagesc(BFull)
         % drawnow;          
