@@ -8,10 +8,11 @@ else
     loopStartRange1 = 1:length(loopStart);
 
 end
-if interpolation == "cubic" && plotMulti
+if interpolation == "cubic" && plotMulti 
     hold on;
+else
 end
-if interpolation == "sinc" && plotMulti && fullSinc ~= 0
+if interpolation == "linear" && plotMulti && fullSinc ~= 0
     hold on;
 end
 h = plot(real(modesSave(modesSaveRange, :)));

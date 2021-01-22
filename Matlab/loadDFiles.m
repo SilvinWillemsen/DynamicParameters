@@ -6,6 +6,7 @@ NSaveFile = path + mode + "/NSave" + version + ".csv";
 NChangeFile = path + mode + "/NChange" + version + ".csv";
 lambdaSqSaveFile = path + mode + "/lambdaSqSave" + version + ".csv";
 alfTickSaveFile = path + mode + "/alfTickSave" + version + ".csv";
+aUSaveFile = path + mode + "/aUSave" + version + ".csv";
 curFsFile = path + mode + "/curFs.csv";
 
 stateAtD = load (stateAtFile);
@@ -24,3 +25,5 @@ lambdaSqSaveD = load (lambdaSqSaveFile);
 disp ("LambdaSqSave" + version + " loaded")
 alfTickSaveD = load (alfTickSaveFile);
 disp ("AlfTickSave" + version + " loaded")
+aUSaveD = load (aUSaveFile);
+disp ("AUSave" + version + " loaded")

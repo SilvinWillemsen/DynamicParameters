@@ -2,9 +2,9 @@ clear all;
 % close all;
 clc;
 
-setting = false; % true is drawing, false is sound
+setting = true; % true is drawing, false is sound
 
-drawSpeed = 10;
+drawSpeed = 1;
 if drawSpeed == 1
     drawSpeedMod = 0;
 else 
@@ -16,9 +16,9 @@ k = 1/fs;               % Time step
 lpConnection = true;
 lpExponent = 27;
 
-drawStart = 1.57*fs;
+drawStart = 0;
 drawThings = setting;
-excite = true;
+excite = false;
 
 numFromBound = -1;
 
@@ -44,9 +44,9 @@ changeC = true; % set to true for dynamic changes in wavespeed
 sinusoidalChange = false;
 freq = 2;
 
-Ninit = 50 * fs / 44100;           % edit how many points you want
+Ninit = 15.5 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-Nend = 40 * fs / 44100;
+Nend = 20 * fs / 44100;
 cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
@@ -484,7 +484,7 @@ for n = 1:lengthSound
     if n > drawStart && drawThings && mod(n, drawSpeed) == drawSpeedMod
         
         gridMove = true;
-        zoomed = false;       
+        zoomed = true;       
         interpolExplanation = false;
 
         addingPoint = false;
@@ -568,7 +568,7 @@ for n = 1:lengthSound
             xtickLocs = [0, floor(length(u) / 2), length(u), length(u) + floor(length(w) / 2), N];
             xlabelSave = ["$u_0$", "$u_l$", "$u_M, w_0$", "$w_l$", "$w_{M_w}$"];        
         end
-%         ylim([-0.6, 0.6])
+        ylim([-0.6, 0.6])
 %         ylim([-5,5])
         xlabel("$l$", 'interpreter', 'latex')
         grid on;
@@ -576,7 +576,8 @@ for n = 1:lengthSound
 %             xlim([hLocsLeft(end-3), hLocsRight(4)])
             if numFromBound == -1
 %                 xlim([hLocsLeft(12), hLocsRight(5)])
-                xlim([0.45 * N, 0.55 * N])
+                xlim([0.3 * N, 0.7 * N])
+                xlim([hLocsLeft(end-4), hLocsRight(4)])
             else
                 xlim([N-numFromBound - N/4, N-numFromBound + N/8])
             end

@@ -1,5 +1,5 @@
 clear all;
-interpOrder = 4;
+interpOrder = 12;
 symsVec = {};
 for i = 0:interpOrder
     string = "I" + num2str(i);
@@ -9,31 +9,37 @@ for i = 0:interpOrder
     eval("symsVec = [symsVec;" + string + "];");
 end
 
-syms alpha xLoc xLocs;
+syms alf xLoc xLocs;
 
-% xLoc = (alpha + 1);
+% xLoc = (alf + 1);
 % xLocs = (0:interpOrder) - floor((interpOrder - 1) / 2);
 %% custom ip
-% xLoc = 2 + 0*alpha;
-% xLocs = (0:interpOrder) + 0 * alpha;
-% xLocs((length(xLocs) / 2) + 1 : end) = xLocs((length(xLocs) / 2) + 1 : end) + alpha;
+% xLoc = 2 + 0*alf;
+% xLocs = (0:interpOrder) + 0 * alf;
+% xLocs((length(xLocs) / 2) + 1 : end) = xLocs((length(xLocs) / 2) + 1 : end) + alf;
 
 %% other ip
-% xLoc = ((interpOrder + 1) / 2) - 1 + alpha;
-% xLocs = (0:interpOrder) + 0*alpha;
+% xLoc = ((interpOrder + 1) / 2) - 1 + alf;
+% xLocs = (0:interpOrder) + 0*alf;
 % 
-% xLocs((length(xLocs) / 2) + 2 : end) = xLocs((length(xLocs) / 2) + 2 : end) - 1 + alpha;
+% xLocs((length(xLocs) / 2) + 2 : end) = xLocs((length(xLocs) / 2) + 2 : end) - 1 + alf;
 
 %% test 7 jan
 % halfI = (interpOrder + 1) / 2;
-% xLoc = halfI + 0*alpha;
-% xLocs = 0:interpOrder + 0*alpha;
-% xLocs = xLocs + [zeros(1, halfI) * alpha, alpha * ones(1, halfI)];
+% xLoc = halfI + 0*alf;
+% xLocs = 0:interpOrder + 0*alf;
+% xLocs = xLocs + [zeros(1, halfI) * alf, alf * ones(1, halfI)];
 
-%% alt Cubic
-xLoc = 2 + 0*alpha;
-xLocs = (0:4) + 0*alpha;
-xLocs = xLocs + [0,0, ones(1, 3) * (alpha - 1)];
+if mod(interpOrder,2) == 0
+    %% even
+    xLoc = interpOrder*0.5 + 0*alf;
+    xLocs = (0:interpOrder) + 0*alf;
+    xLocs = xLocs + [zeros(1, interpOrder * 0.5), ones(1, interpOrder * 0.5 + 1) * (alf - 1)];
+else
+    xLoc = 2 + 0*alf;
+    xLocs = 0:interpOrder + 0*alf;    
+    xLocs = xLocs + [zeros(1, ceil(interpOrder * 0.5)), ones(1, ceil(interpOrder * 0.5)) * (alf - 1)];
+end
 for i = 1:interpOrder+1
     for k = 1 : interpOrder+1
         if k ~= i
@@ -42,7 +48,6 @@ for i = 1:interpOrder+1
     end
     eval("symsVec(i) = symsVec(i) / I" + num2str(i-1) + ";")
 end
-
 for alf = 0:0.01:1
     plot(subs(symsVec,alf))
     drawnow

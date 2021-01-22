@@ -31,22 +31,20 @@ elseif loopingN
 else
     loopAmount = 10000;
 end
+alfExpStart = 6;
+alfExpEnd = 10;
+alfExp = alfExpStart:(alfExpEnd-alfExpStart)/loopAmount:alfExpEnd;
+alfExp = ones(loopAmount,1) * 100;
 if firstIteration
     loopAmountRange = 1:loopAmount;
 else
     loopAmountRange = 1:(loopAmount+1);
 end
-interpolation = "quartic";
+
+% choose interpolation
+interpolation = "sinc";
+
 plotMulti = false;
-%{
-Decides whether to use the full range or not 
-    0: fullSinc is false 
-    1: include all moving points
-    2: include boundaries as well
-    3: include virtual grid points
-%}
-fullSinc = 0;
-fSCentered = true; % "true" only works if numFromBound == -1
 
 %{
     Number from the right boundary (quite important, switches between
@@ -59,11 +57,26 @@ fSCentered = true; % "true" only works if numFromBound == -1
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = -1;
+numFromBound = 1;
+
+% sinc settings
+even = false; % for sinc interpolation only
+shifted = false; % for odd sinc interpolation only
+overrideSincWidth = 2;
+
+%{
+Decides whether to use the full range or not 
+    0: fullSinc is false 
+    1: include all moving points
+    2: include boundaries as well
+    3: include virtual grid points
+%}
+fullSinc = 0;
+fSCentered = true; % "true" only works if numFromBound == -1
 
 for Nloop = range
     fs = 44100;                 % sample rate
-    k = 1/fs;                   % time step
+    k = 1/fs;                       % time step
     
     if loopingN
         Ninit = Nloop;          % number of intervals (!)
@@ -193,6 +206,17 @@ for Nloop = range
                 BFull(M, (M+1):(M + 2)) = [alf, (1-alf)];
                 BFull(M + 1, (M-1) : M) = [(1-alf), alf];
             end
+        elseif interpolation == "quadratic"
+            ip = [(alf - 1)/(alf + 1), ...
+                  1, ...
+                  -(alf - 1)/(alf + 1)];
+            if numFromBound == 1
+                BFull(M, (M):(M + 1)) = BFullInit(M, (M):(M + 1)) + ip(1:2);
+                BFull(M+1, (M-1):(M+1)) = BFullInit(M+1, (M-1):(M+1)) + fliplr(ip);
+            else
+                BFull(M, (M):(M + 2)) = BFullInit(M, (M):(M + 2)) + ip;
+                BFull(M+1, (M-1):(M+1)) = BFullInit(M+1, (M-1):(M+1)) + fliplr(ip);
+            end
         elseif interpolation == "cubic"
             ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                 (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
@@ -246,6 +270,18 @@ for Nloop = range
                 BFull(M+1, (M-2):(M+1)) = BFullInit(M+1, (M-2):(M+1)) + fliplr(ip);
             end 
 %             BFull(M+1, (M-2 : M)) =  ip(1:3) * Ainv(2, 2);
+        elseif interpolation == "shiftedCubic"
+            ip  = [-(alf*(alf - 1))/((alf + 1)*(alf + 2)), ...
+                   (2*(alf - 1))/(alf + 1), ...
+                   2/(alf + 1), ...
+                   -(2*(alf - 1))/((alf + 1)*(alf + 2))];
+            if numFromBound == 1
+                BFull(M, M-1:(M + 1)) = BFullInit(M, M-1:(M + 1)) + ip(1:3);
+                BFull(M+1, (M-1):(M+1)) = BFullInit(M+1, (M-1):(M+1)) + fliplr(ip(2:4));
+            else
+                BFull(M, M-1:(M + 2)) = BFullInit(M, M-1:(M + 2)) + ip;
+                BFull(M+1, (M-1):(M+2)) = BFullInit(M+1, (M-1):(M+2)) + fliplr(ip);
+            end
         elseif interpolation == "quartic"
             ip = [-(alf*(alf - 1))/((alf + 2)*(alf + 3)), ...
                 (2*(alf - 1))/(alf + 2), ...
@@ -262,26 +298,67 @@ for Nloop = range
                 BFull(M, (M-1):(M + 3)) = BFullInit(M, (M-1):(M + 3)) + ip;
                 BFull(M+1, (M-2):(M+2)) = BFullInit(M+1, (M-2):(M+2)) + fliplr(ip);
             end
+        elseif interpolation == "six"
+            ip = [(alf*(alf - 1)*(alf + 1))/((alf + 3)*(alf + 4)*(alf + 5)), ...
+                  -(3*alf*(alf - 1))/((alf + 3)*(alf + 4)), ...
+                  (3*(alf - 1))/(alf + 3), ...
+                  1, ...
+                  -(3*(alf - 1))/(alf + 3), ...
+                  (3*alf*(alf - 1))/((alf + 3)*(alf + 4)), ...
+                  -(alf*(alf - 1)*(alf + 1))/((alf + 3)*(alf + 4)*(alf + 5))];
+             BFull(M, (M-2):(M + 4)) = BFullInit(M, (M-2):(M + 4)) + ip;
+             BFull(M+1, (M-3):(M+3)) = BFullInit(M+1, (M-3):(M+3)) + fliplr(ip);
+
+        elseif interpolation == "highEven"
+             ip =  [-(alf*(alf - 1)*(alf + 1)*(alf + 2)*(alf + 3)*(alf + 4))/((alf + 6)*(alf + 7)*(alf + 8)*(alf + 9)*(alf + 10)*(alf + 11)), ...
+                     (6*alf*(alf - 1)*(alf + 1)*(alf + 2)*(alf + 3))/((alf + 6)*(alf + 7)*(alf + 8)*(alf + 9)*(alf + 10)), ...
+                                        -(15*alf*(alf - 1)*(alf + 1)*(alf + 2))/((alf + 6)*(alf + 7)*(alf + 8)*(alf + 9)), ...
+                                                             (20*alf*(alf - 1)*(alf + 1))/((alf + 6)*(alf + 7)*(alf + 8)), ...
+                                                                                -(15*alf*(alf - 1))/((alf + 6)*(alf + 7)), ...
+                                                                                                  (6*(alf - 1))/(alf + 6), ...
+                                                                                                                        1, ...
+                                                                                                 -(6*(alf - 1))/(alf + 6), ...
+                                                                                 (15*alf*(alf - 1))/((alf + 6)*(alf + 7)), ...
+                                                            -(20*alf*(alf - 1)*(alf + 1))/((alf + 6)*(alf + 7)*(alf + 8)), ...
+                                         (15*alf*(alf - 1)*(alf + 1)*(alf + 2))/((alf + 6)*(alf + 7)*(alf + 8)*(alf + 9)), ...
+                    -(6*alf*(alf - 1)*(alf + 1)*(alf + 2)*(alf + 3))/((alf + 6)*(alf + 7)*(alf + 8)*(alf + 9)*(alf + 10)), ...
+  (alf*(alf - 1)*(alf + 1)*(alf + 2)*(alf + 3)*(alf + 4))/((alf + 6)*(alf + 7)*(alf + 8)*(alf + 9)*(alf + 10)*(alf + 11))];
+            ipRange = M + (-(length(ip)-1)/2:(length(ip)-1)/2);
+            BFull(M, ipRange + 1) = BFullInit(M, ipRange + 1) + ip;
+            BFull(M+1, ipRange) = BFullInit(M+1, ipRange) + fliplr(ip);
         elseif interpolation == "sinc"
             includeUMp1AndWm1 = true;
+            
             if alf < 1e-6
                 alf = alf + 1e-6;
             end
             
-            alphaBand = 1; % relative bandwidth range
+            alphaBand = 0.8; % relative bandwidth range
             bmax = alphaBand*pi;
             
-%             sincWidth = 2;
             if numFromBound == -1
                 sincWidth = floor(N / 2) - 1;
                 sincWidth = 2;
             else
-                sincWidth = numFromBound+1;
+%                 sincWidth = numFromBound+1;
+            end
+            if overrideSincWidth ~= 0
+                sincWidth = overrideSincWidth; % override sincwidth
             end
             if fullSinc == 0
                 if includeUMp1AndWm1
-                    xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
-                    xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
+                    if even
+                        xUMp1 = [-sincWidth:-1, -1:sincWidth-1]';
+                        xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth+1, 1)];
+                    else
+                        if shifted
+                            xUMp1 = [-sincWidth:-1, -1:sincWidth-2]';
+                            xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
+                        else
+                            xUMp1 = [-sincWidth+1:-1, -1:sincWidth-1]';
+                            xUMp1 = xUMp1 + [zeros(sincWidth-1, 1); alf * ones(sincWidth+1, 1)];
+                        end
+                    end
                 else
                     xUMp1 = (-sincWidth:sincWidth-1)';
                     xUMp1 = xUMp1 + [zeros(sincWidth, 1); alf * ones(sincWidth, 1)];
@@ -322,16 +399,23 @@ for Nloop = range
 %                 aU(idxAu-1) = 1;
 %                 aU(idxAu) = 1;
 %             end
+%             aU = aU / sum(aU);
+%             sum(aU)
             if fullSinc == 0
                 aW = flipud(aU);
 
-                if includeUMp1AndWm1
-                    xWm1 = [-sincWidth+1:1, 1:sincWidth]';
-                    xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
-                else
-                    xWm1 = (-sincWidth+1:sincWidth)';
-                    xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
-                end
+%                 if includeUMp1AndWm1
+%                     if even
+%                         xWm1 = [-sincWidth+1:1, 1:sincWidth]';
+%                         xWm1 = xWm1 - [alf * ones(sincWidth+1, 1); zeros(sincWidth, 1)];
+%                     else
+%                         xWm1 = [-sincWidth+1:1, 1:sincWidth-1]';
+%                         xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
+%                     end
+%                 else
+%                     xWm1 = (-sincWidth+1:sincWidth)';
+%                     xWm1 = xWm1 - [alf * ones(sincWidth, 1); zeros(sincWidth, 1)];
+%                 end
             elseif fullSinc == 1
                 xWm1 = (1:N)' - M;
                 xWm1 = xWm1 - [alf * ones(M, 1) - 1; zeros(N-M, 1)];
@@ -395,16 +479,28 @@ for Nloop = range
                 BFull(M+1, inputRange2) = BFullInit(M+1, inputRange2) + aW(3:end-2)' - [aW(1), zeros(1, length(aW)-6), aW(end)];
             elseif M + sincWidth == N+1 % use boundary condition
                 if includeUMp1AndWm1
-                    BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
-                    BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW(1:end-1)';
+                    if even
+                        BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
+                        BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW(1:end-1)';
+                    else
+                        BFull(M, M-sincWidth+2:end) = BFullInit(M, M-sincWidth+2:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
+                        BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW';
+                    end
                 else
                     BFull(M, M-sincWidth+2:end) = BFullInit(M, M-sincWidth+2:end) + aU(1:end-2)' - [zeros(1, length(aU)-3), aU(end)];
                     BFull(M+1, (M-sincWidth: end-1)) = BFullInit(M+1, (M-sincWidth: end-1)) + aW(1:end-1)';
                 end
             elseif M + sincWidth == N % use boundary condition
                 if includeUMp1AndWm1
-                    BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-1)';
-                    BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW';
+                    if even
+                        BFull(M, M-sincWidth+1 : end) =  BFullInit(M, M-sincWidth+1 : end) + aU(1:end-1)';
+                        BFull(M+1, M-sincWidth : end) = BFullInit(M+1, M-sincWidth : end) + aW';
+                    else
+                        BFull(M, M-sincWidth+2 : end) =  BFullInit(M, M-sincWidth+2 : end) + aU(1:end-1)';
+                        BFull(M+1, M-sincWidth : end-1) = BFullInit(M+1, M-sincWidth : end-1) + aW';
+                    end     
+%                     BFull(M, M-sincWidth+1:end) = BFullInit(M, M-sincWidth+1:end) + aU(1:end-1)';
+%                     BFull(M+1, (M-sincWidth : end)) = BFullInit(M+1, (M-sincWidth : end)) + aW';
                 else
                     BFull(M, M-sincWidth+2:end) = BFullInit(M, M-sincWidth+2:end) + aU(1:end-1)';
                     BFull(M+1, (M-sincWidth: end-1)) = BFullInit(M+1, (M-sincWidth: end-1)) + aW';
@@ -412,9 +508,21 @@ for Nloop = range
             else
 %                 BFull(M, (M + 1):(M + 3)) = aU(1:3);
                 if includeUMp1AndWm1
-                    sincRange = (M-sincWidth : M+sincWidth);
-                    BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
-                    BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
+                    if even
+                        sincRange = (M-sincWidth : M+sincWidth);
+                        BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
+                        BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
+                    else
+                        sincRange = (M-sincWidth+1 : M+sincWidth);
+
+                        if shifted
+                            BFull(M, sincRange) =  BFullInit(M, sincRange) + aU';
+                            BFull(M+1, sincRange) = BFullInit(M+1, sincRange) + aW';
+                        else
+                            BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
+                            BFull(M+1, sincRange-1) = BFullInit(M+1, sincRange-1) + aW';
+                        end
+                    end                    
                 else
                     sincRange =[M-sincWidth:M-1, M+1:M+sincWidth];
                     BFull(M, sincRange+1) =  BFullInit(M, sincRange+1) + aU';
@@ -500,6 +608,14 @@ for Nloop = range
 
     drawnow;
 end
+% 
+% for i = 1:10:loopAmount
+%     plot((diff(real(modesSave(i, ~isnan(modesSave(i, :)))))));
+%     ylim([0.75 * real(modesSave(i, 1)) , real(modesSave(i, 1))]);
+%     title(alfExp(i));
+%     drawnow;
+% end
+
 % xData = 1:loopAmount;
 % goodness = zeros(floor(loopNStart), 1);
 % rms = zeros(floor(loopNStart), 1);

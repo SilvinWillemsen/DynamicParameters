@@ -171,6 +171,7 @@ if plotSpectrogram
     if origVersion == "D" || origVersion == "B"
 %         subplot(211)
         spectrogram(outputD,512,64,512, curFs, 'yaxis');
+%         imagesc(angle(S))
 %         subplot(212)
 %         plot(outputD)
         % Create figure
@@ -246,7 +247,7 @@ else
     xlim([0 0.5 * 44100])
     ylim([-25, 100])
     if curFs == 88200
-        legend([fftPlot44100, fftPlot88200], ["$f_\textrm{\fontsize{7}{0}\selectfont s} = 44100 \quad N = 15.5$", ...
+           legend([fftPlot44100, fftPlot88200], ["$f_\textrm{\fontsize{7}{0}\selectfont s} = 44100 \quad N = 15.5$", ...
         "$f_\textrm{\fontsize{7}{0}\selectfont s} = 88200 \quad N = 31$"], ...
         'interpreter', 'latex')
     end
