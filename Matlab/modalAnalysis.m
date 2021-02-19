@@ -1,4 +1,4 @@
-% close all;
+close all;
 firstIteration = true;
 
 if firstIteration
@@ -8,14 +8,14 @@ else
     figure('Position', [200, 200, 1200, 450])
     set(gcf, 'color', 'w');
 end
-figure;
+% figure;
 loopingN = false;
-loopNStart = 15; % also use for Ninit an Nend
-loopNend = 20;
+loopNStart = 5; % also use for Ninit an Nend
+loopNend = 200;
 plotModeShapesBool = ~firstIteration;
 
 lowPassConnection = false;
-lpExponent = 30;
+lpExponent = 10;
 
 modeToPlot = 8; % if -1 plot all modes
 limSubplots = 3;
@@ -31,10 +31,10 @@ elseif loopingN
 else
     loopAmount = 10000;
 end
-alfExpStart = 6;
-alfExpEnd = 10;
-alfExp = alfExpStart:(alfExpEnd-alfExpStart)/loopAmount:alfExpEnd;
-alfExp = ones(loopAmount,1) * 100;
+% alfExpStart = 6;
+% alfExpEnd = 10;
+% alfExp = alfExpStart:(alfExpEnd-alfExpStart)/loopAmount:alfExpEnd;
+% alfExp = ones(loopAmount,1) * 100;
 if firstIteration
     loopAmountRange = 1:loopAmount;
 else
@@ -42,9 +42,10 @@ else
 end
 
 % choose interpolation
-interpolation = "sinc";
+interpolation = "quadratic";
 
 plotMulti = false;
+lambdaFactor = 1;
 
 %{
     Number from the right boundary (quite important, switches between
@@ -57,12 +58,13 @@ plotMulti = false;
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = 1;
+numFromBound = -1;
 
 % sinc settings
-even = false; % for sinc interpolation only
+even = true; % for sinc interpolation only
 shifted = false; % for odd sinc interpolation only
 overrideSincWidth = 2;
+normaliseAU = false;
 
 %{
 Decides whether to use the full range or not 
@@ -93,13 +95,13 @@ for Nloop = range
     
     cInit = h/k;
     cEnd = 1/(Nend * k);
-    cVec = linspace (cInit, cEnd, loopAmount + 1);
+    cVec = linspace (cInit, cEnd, loopAmount);
     
     if interpolation == "none"
         h = 1/N;
     end
     
-    lambdaSq = (cInit * k / h)^2;
+    lambdaSq = (lambdaFactor * cInit * k / h)^2;
     
     
     % Create B-matrix
@@ -149,13 +151,14 @@ for Nloop = range
         h = cVec(i) * k;
         Ninit = 1/h;
         N = floor(Ninit);
+        NSave(i) = Ninit;
         alf  = Ninit - N;
         alfSave(i) = alf;
         if interpolation == "none"
             h = 1/N;
         end
         
-        lambdaSq = (cVec(i) * k / h)^2;
+        lambdaSq = (lambdaFactor * cVec(i) * k / h)^2;
         
         if N ~= NPrev
 %             modeToPlot = modeToPlot + 1;
@@ -207,7 +210,7 @@ for Nloop = range
                 BFull(M + 1, (M-1) : M) = [(1-alf), alf];
             end
         elseif interpolation == "quadratic"
-            ip = [(alf - 1)/(alf + 1), ...
+            ip = lambdaSq * [(alf - 1)/(alf + 1), ...
                   1, ...
                   -(alf - 1)/(alf + 1)];
             if numFromBound == 1
@@ -333,7 +336,7 @@ for Nloop = range
                 alf = alf + 1e-6;
             end
             
-            alphaBand = 0.8; % relative bandwidth range
+            alphaBand = 1; % relative bandwidth range
             bmax = alphaBand*pi;
             
             if numFromBound == -1
@@ -399,8 +402,27 @@ for Nloop = range
 %                 aU(idxAu-1) = 1;
 %                 aU(idxAu) = 1;
 %             end
-%             aU = aU / sum(aU);
-%             sum(aU)
+            if normaliseAU 
+                aU = aU / sum(aU);
+            end
+            Mtest = 1000;
+            bvec = [0:Mtest]'*(pi/h)/Mtest;
+            H = zeros(Mtest+1, 1);
+            for qq=1:length(aU)
+                Hnow = aU(qq)*exp(j*bvec*xUMp1(qq)*h);
+                H = H+Hnow;
+            %     hold off;
+            %     plot(abs(Hnow));
+            %     hold on
+            %     plot(angle(Hnow));
+            %     drawnow;
+            %     pause(0.5);
+            end
+            plot(bvec,abs(H))
+            title(alf);
+%             ylim([0, 1])
+            drawnow;
+            
             if fullSinc == 0
                 aW = flipud(aU);
 
@@ -581,13 +603,13 @@ for Nloop = range
             end
         end
         if lowPassConnection
-%                 lpVec = 0.5 * [-(1-alf)^(lpExponent), (1-alf)^(lpExponent)];
-            lpVec = 0.5 * [-cos((alf) * pi/2)^lpExponent, cos((alf) * pi/2)^lpExponent];
+                lpVec = 0.5 * [-(1-alf)^(lpExponent), (1-alf)^(lpExponent)];
+%             lpVec = 0.5 * [-cos((alf) * pi/2)^lpExponent, cos((alf) * pi/2)^lpExponent];
             BFull(M, M:M+1) = BFull(M, M:M+1) + lpVec;
             BFull(M+1, M:M+1) = BFull(M+1, M:M+1) - lpVec;
         end
         % imagesc(BFull)
-        % drawnow;          
+        % drawnow;  
         [~, D, W] = eig(BFull, 'vector');
         if plotModeShapesBool
     %         order = Ninit:-1:1;
@@ -608,14 +630,14 @@ for Nloop = range
 
     drawnow;
 end
-% 
+
 % for i = 1:10:loopAmount
-%     plot((diff(real(modesSave(i, ~isnan(modesSave(i, :)))))));
-%     ylim([0.75 * real(modesSave(i, 1)) , real(modesSave(i, 1))]);
-%     title(alfExp(i));
+%     plot(diff(diff(real(modesSave(i, ~isnan(modesSave(i, :)))))));
+% %     ylim([0.75 * real(modesSave(i, 1)) , real(modesSave(i, 1))]);
+%     title(NSave(i))
 %     drawnow;
 % end
-
+% 
 % xData = 1:loopAmount;
 % goodness = zeros(floor(loopNStart), 1);
 % rms = zeros(floor(loopNStart), 1);
@@ -635,5 +657,61 @@ end
 % plot(goodness)
 % subplot(212)
 % plot(sse)
+% 
+figure;
+% for i = 1:min(loopNStart, loopNend)
+%     plot(diff(diff(modesSave(~isnan(modesSave(:, i)), i))));
+%     hold on;
+% end
 
+% trying to find maximum deviation (in %) of the top mode.
+% create vector of mode frequencies
+shouldBeHighestMode = zeros(loopAmount, 1);
+highestModeAnalysis = zeros(loopAmount, 1);
+highestModeIdx = zeros(loopAmount, 1);
 
+for i = loopAmountRange
+    highestMode = real(modesSave(i, ~isnan(modesSave(i, :))));
+    highestModeIdx(i) = length(highestMode);
+    shouldBeHighestMode(i) = highestModeIdx(i) * cVec(i) / 2;
+    highestModeAnalysis(i) = highestMode(highestModeIdx(i));
+end
+% plot(shouldBeHighestMode)
+% hold on;
+% plot(highestModeAnalysis);
+% plot((highestModeAnalysis-shouldBeHighestMode) ./ (cVec' / 2));
+plot(1200 * log2(highestModeAnalysis./shouldBeHighestMode))
+
+shouldBeFreqs = ((1:max(loopNStart, loopNend))' * cVec / 2)';
+save = zeros(min(loopNStart, loopNend), length(loopStart) - 1);
+for i = 1:loopNend
+%     plot((modesSave(:,i) - shouldBeFreqs(:,i)) ./ shouldBeFreqs(:,1));
+    centDev = 1200 * log2(modesSave(:,i)./shouldBeFreqs(:,i));
+    for j = 1:length(loopStart)-1
+        test = centDev(find(min(centDev(loopStart(j):loopStart(j+1))) == centDev(loopStart(j):loopStart(j+1))));
+        if min(size(test)) == 0
+            save(i,j) = 0;
+        else
+            save(i, j) = test;
+        end
+%         save(i, j) = centDev(find(min(centDev(loopStart(j):loopStart(j+1))) == centDev(loopStart(j):loopStart(j+1))));
+%         save(i, j)
+    end
+    plot(centDev)
+    hold on;
+%     pause(0.5);
+%     drawnow;
+end
+figure;
+% plot(save)1200 * log2()
+for i = 1:min(loopNStart, loopNend)
+    plot(save(:,i));
+    hold on
+    drawnow;
+    pause(0.2)
+    
+    title(i + Ninit)
+end
+% i = 99;
+% eps = ((modesSave(:,i) - shouldBeFreqs(:,i))./ shouldBeFreqs(:,1));
+% min(eps)

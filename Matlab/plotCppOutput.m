@@ -13,8 +13,7 @@ end
 
 plotState = false;
 k = 1/curFs;
-drawSpeed = 100; 
-
+drawSpeed = 1;
 plotSpectrogram = true;
 
 % if origVersion == "I"
@@ -81,12 +80,13 @@ if plotState
 %                 startIdxU = endIdxU + 1;
 %                 startIdxW = endIdxW + 1;
                 title(100 * n/(length(plotIdxD)))
-                ylim([-1, 1])
-%                 xlim([0.9, 1])
+                ylim([-20, 20])
+%                 xlim([0.47, 0.52])
 %                 pause(0.5);
                 if cSaveIdx > 4 && (NSaveD(cSaveIdx) ~= NSaveD(cSaveIdx-4))
 %                     disp("wait");
                 end
+                pause(0.1);
                 drawnow;
                 if n == 200 * 4 + 1
                     disp("wait");
@@ -170,7 +170,21 @@ if plotSpectrogram
     end
     if origVersion == "D" || origVersion == "B"
 %         subplot(211)
+%         figure;
         spectrogram(outputD,512,64,512, curFs, 'yaxis');
+        set(gca, 'Fontsize', 16, 'Fontname', 'Times');
+%         figure;
+%         plot(outputD)
+        
+%             nonLPfft = fft(outputD(1:curFs));
+%         LPfft = fft(outputD((end-curFs+1):end));
+%         test = nonLPfft ./ LPfft;
+%         plot(abs(test(1:22050)))
+%         [vals, locs] = findpeaks(abs(nonLPfft(1:22050)), 'Threshold', 0.1, 'MinPeakHeight',-10);
+%         hold on;
+%         plot(locs, abs(test(locs)))
+
+
 %         imagesc(angle(S))
 %         subplot(212)
 %         plot(outputD)
@@ -223,6 +237,9 @@ else
     triWidth = 500;
     triHeight = 4;
     if curFs == 44100
+        if lengthSound ~= curFs
+            disp("length is not fs")
+        end
         rangeFFT = 0:lengthSound-1;
         
         fftPlot44100 = plot(rangeFFT(~isinf(outfftInDb))'*curFs/lengthSound, outfftInDb(~isinf(outfftInDb)), 'k', 'Linewidth', 2);
@@ -234,6 +251,9 @@ else
             patch(xTri,yTri,'k', 'EdgeColor', 'none') %plotting triangle in white color
         end
     else
+        if lengthSound ~= curFs
+            disp("length is not fs")
+        end
         greyVal = 0.6;
         fftPlot88200 =plot([0:lengthSound-1]'*curFs/lengthSound, 20 * log10(abs(outfft)), ':', 'color', [greyVal, greyVal, greyVal], 'Linewidth', 2);
         for i = 1:length(locs)
@@ -265,3 +285,12 @@ else
 
     % soundsc(output(1:(curFs / 44100):end), 44100);
 end
+
+% fftRange = 2048;
+% pos = 1:fftRange
+% while pos(end) < length(outputD)
+%     mag = abs(fft(outputD(pos)));
+%     plot(mag(1:fftRange/2));
+%     pos = pos + fftRange * 0.5;
+%     drawnow;
+% end

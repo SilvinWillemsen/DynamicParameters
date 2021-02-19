@@ -21,7 +21,7 @@ Dxxw = (sparse(2:Mw, 1:Mw-1, ones(1, Mw-1), Mw, Mw) + ...
 
 BFull((M+1):end, (M+1):end) = 2 * eye(Mw) + Dxxw;
 
-alf = 0.5;
+alf = 0;
 % Ainv = inv([1, 0; 0, 1]);
 %connect the two
 ip = [alf * (alf - 1) * (alf - 2) / -6, ...
@@ -89,7 +89,7 @@ for n = 1:lengthSound
     
     vPrev = v;
     v = vNext;
-    if drawstuff && mod(n,100) == 0
+    if drawstuff && mod(n,1000000) == 0
         hold off
         plot(1:M, u(1:M), 'o--');
         hold on;
@@ -103,4 +103,8 @@ for n = 1:lengthSound
     end
 end
 spectrogram(outu, 512,64,512, fs)
+view([90, -90])
+
+figure;
+spectrogram(outv, 512,64,512, fs)
 view([90, -90])

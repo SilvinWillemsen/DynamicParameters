@@ -2,9 +2,9 @@ clear all;
 % close all;
 clc;
 
-setting = true; % true is drawing, false is sound
-
-drawSpeed = 1;
+setting = false; % true is drawing, false is sound
+plotEnergy = false;
+drawSpeed = 100;
 if drawSpeed == 1
     drawSpeedMod = 0;
 else 
@@ -13,12 +13,14 @@ end
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
 
-lpConnection = true;
-lpExponent = 27;
+dispCorr = true;
+lpConnection = false;
+lpExponent = 30;
 
 drawStart = 0;
 drawThings = setting;
-excite = false;
+excite = true;
+exciteConnection = ~excite;
 
 numFromBound = -1;
 
@@ -33,7 +35,7 @@ fullSinc = 3;
 fSCentered = false; % "true" only works if numFromBound == -1
 
 % if setting
-    lengthSound = fs * 1;       % Length of the simulation
+    lengthSound = fs * 10;       % Length of the simulation
 % else
 %     lengthSound = fs * 1.5;
 % end
@@ -42,16 +44,21 @@ startSample = 0;
 
 changeC = true; % set to true for dynamic changes in wavespeed
 sinusoidalChange = false;
-freq = 2;
+freq = 10;
 
-Ninit = 15.5 * fs / 44100;           % edit how many points you want
+Ninit = 300 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-Nend = 20 * fs / 44100;
+Nend = 15 * fs / 44100;
 cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
 
-h = c*k;                % calculate h from wavespeed
+alf = Ninit - floor(Ninit);        % fractional remainder for the grid point
+% sigma1 = 0.0005;
+% sig = sigma1 / ((alf + 1) * 0.5);
+hScalar = 1;
+% h = hScalar * sqrt((c*k)^2 + 2 * sig * k);                % calculate h from wavespeed
+h = c * k; 
 N = floor(1/h);         % calculate points from h
 
 lambdaSq = (c*k/h)^2    % should always be 1 as h is not recalculated
@@ -69,12 +76,13 @@ else
     u = zeros(M, 1);
 end
 
-excitationWidth = 0.2;
-excitationLoc = 1/pi;
+excitationWidth = 0.25;
+excitationLoc = 1/5;
 loc = excitationLoc * N;
-width = max (4.0, excitationWidth * N);
+width = floor(max (4.0, excitationWidth * N));
 raisedCosStart = floor (loc - width * 0.5);
-raisedCosEnd = floor (loc + width * 0.5);
+raisedCosEnd = raisedCosStart + width;
+exciteForFigure = false;
 
 if excite
     u(raisedCosStart : raisedCosEnd) = 0.5 * (1 - cos (2.0 * pi * ((raisedCosStart:raisedCosEnd)-raisedCosStart) / width));
@@ -82,6 +90,11 @@ if excite
 %     u(floor(N/3.14)-testPoint:floor(N/3.14)+testPoint) = hann(testPoint * 2 + 1); % use hann window for excitation
 %     u(end-1) = 1;
 end
+
+if exciteConnection
+    u(end) = 0.1;
+end
+
 % u = rand(length(u), 1);
 uPrev = u;
 
@@ -93,10 +106,24 @@ else
     wNext = zeros(numFromBound, 1);
     w = zeros(numFromBound, 1);
 end
+
+if exciteForFigure
+    if Ninit ~= 30
+        disp("not correct number of points")
+    else
+        u = zeros(size(u));
+        w = zeros(size(u));
+        w(end-8:end) = hann(9);
+    end
+end
+
 % w(floor(4*/5)-4:floor(4*N/5)+4) = hann(9); % use hann window for excitation
 
 % w = rand(length(w), 1);
 % w(1) = u(end);
+if exciteConnection
+    w(1) = -0.1;
+end
 wPrev = w;
 
 % initialise laplacians
@@ -106,9 +133,9 @@ Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
 ew = ones(length(w), 1);
 Dxxw = spdiags([ew -2*ew ew], -1:1, length(w),length(w));
 
-interpol = "sinc";
+interpol = "quadratic";
 % custInterpol = interpol;
-custInterpol = "sinc";
+custInterpol = "cubic";
 outFree = zeros(floor(lengthSound), 1);
 
 if sinusoidalChange
@@ -117,15 +144,15 @@ else
     cVec = linspace(cInit, cEnd, lengthSound);
 end
 %% recording
-Mvid(500) = struct('cdata',[],'colormap',[]);
+Mvid(200) = struct('cdata',[],'colormap',[]);
 frame = 1;
-filmFlag = true;
+filmFlag = false;
 interpolatedPoints = [0; 0];
 
 %% plotting
 % figure('Position', [0, 0, 800, 200])
 if setting
-    figure('Position', [0, 0, 500, 200])
+    figure('Position', [0, 0, 500, 130])
 end
 
 uSave = [];
@@ -135,6 +162,7 @@ MwSave = [];
 
 NVec = linspace(Ninit, Nend, lengthSound);
 diffSave = zeros(lengthSound, 1);
+diffSaveIdx = 0;
 for n = 1:lengthSound  
  
 %     % change wave speed
@@ -154,8 +182,12 @@ for n = 1:lengthSound
 
   
     cSave(n) = c;
+%     sig = sigma1 / ((alf + 1) / 2);
     % recalculate gridspacing, points lambda^2 and alpha from new wave speed
-    h = c*k;
+%     h = hScalar * sqrt((c*k)^2 + 2 * sig * k);
+%     sigSave(n) = sig;
+
+    h = c * k;
     Ninit = 1/h;
     N = floor(1/h);
     Nsave(n) = N;
@@ -217,7 +249,8 @@ for n = 1:lengthSound
 
         % remove point if N^n < N^{n-1}
         if N < NPrev
-            diffSave(n) = w(1) - u(end);
+            diffSaveIdx = diffSaveIdx + 1;
+            diffSave(diffSaveIdx) = w(1) - u(end);
             if numFromBound == -1 
                 if mod(N,2) == 0
                     uNext = uNext(1:end-1);
@@ -247,7 +280,9 @@ for n = 1:lengthSound
         end
     end
     %% calculate interpolator
-    if interpol == "cubic"
+    if interpol == "quadratic"
+        ip = [(alf - 1) / (alf + 1), 1, -(alf - 1) / (alf + 1)];
+    elseif interpol == "cubic"
         ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                 (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
                 alf * (alf + 1) * (alf - 2) / -2, ...
@@ -365,15 +400,34 @@ for n = 1:lengthSound
         diffAtConn = w(1) - u(end);
         diffAtConnPrev = wPrev(1) - uPrev(end);
         lpVec = 0.5 * diffAtConn * [-(1-alf)^lpExponent, (1-alf)^lpExponent];
+%         lpVecPrev = 0.5 * diffAtConnPrev * [-(1-alf)^lpExponent, (1-alf)^lpExponent];
+
 %         lpVec = 0.5 * diffAtConn * [-cos((alf) * pi/2)^lpExponent, cos((alf) * pi/2)^lpExponent];
 
 %         u(end) = u(end) + (1-alf)^lpExponent * diffAtConn * 0.5;
 %         w(1) = w(1) - (1-alf)^lpExponent * diffAtConn * 0.5;
+        
         u(end) = u(end) + lpVec(2);
         w(1) = w(1) + lpVec(1);
+%         
+%         uPrev(end) = uPrev(end) + lpVecPrev(2);
+%         wPrev(1) = wPrev(1) + lpVecPrev(1);
+%         uDampTerm = sig * k / (h * h) * (w(1) - 2 * u(end) + u(end-1) ... 
+%             - wPrev(1) + 2 * uPrev(end) - uPrev(end-1));
+%         wDampTerm = sig * k / (h * h) * (w(2) - 2 * w(1) + u(end) ... 
+%             - wPrev(2) + 2 * wPrev(1) - uPrev(end-1));
     end
     
-    if interpol == "cubic"
+    if interpol == "quadratic"
+        if numFromBound == 1            
+            interpolatedPoints = [ip(1) * u(end) + ip(2) * w(1) + 0; ...
+                                  ip(1) * w(1) + ip(2) * u(end) + ip(3) * u(end-1)];
+        else
+            interpolatedPoints = [ip(1) * u(end) + ip(2) * w(1) + ip(3) * w(2); ...
+                                  ip(1) * w(1) + ip(2) * u(end) + ip(3) * u(end-1)];
+        
+        end
+    elseif interpol == "cubic"
         if numFromBound == 1
             interpolatedPoints = [1, -ip(4); -ip(4), 1] \ [(ip(3) - ip(1)) * w(1);
                                             ip(1) * u(end-2) + ip(2) * u(end-1) + ip(3) * u(end)];
@@ -430,11 +484,46 @@ for n = 1:lengthSound
     %% left half string
     uNext = 2 * u + lambdaSq * Dxxu * u - uPrev;
     uNext(end) = uNext(end) + lambdaSq * interpolatedPoints(1);
+%     if lpConnection
+%         uNext(end) = uNext(end) + uDampTerm;
+%     end
     
     %% right half string
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
     wNext(1) = wNext(1) + lambdaSq * interpolatedPoints(2);
+    
+    if dispCorr
+        epsilon = 0;
 
+        etaDiv = 0.5;
+        
+        eta = (w(1) - u(end)) * etaDiv;
+        etaPrev = (wPrev(1) - uPrev(end)) * etaDiv;
+               
+        sig0 = 1;
+        rForce = (1 - sig0 / k) / (1 + sig0 / k);
+        oOP = (h * (1 + sig0 / k) * (1-alf)) / (2 * h * alf + k^2 * (1 + sig0 / k) * (1-alf));
+        
+        F = ((wNext(1) - uNext(end)) * 0.5 + rForce * etaPrev) * oOP;
+        
+%         oOP = ((1-alf) * h * k + 2 * sig0 * h * (alf + epsilon)) / (2 * (alf + epsilon) * k * h + (1-alf) * k^3 + 2 * sig0 * k^2 * (alf + epsilon));
+%         rForce = ((1-alf) * k - 2 * sig0 * (alf + epsilon)) / ((1-alf) * k + 2 * sig0 * (alf + epsilon));
+%         
+%         F = ((wNext(1) - uNext(end)) * etaDiv + rForce * etaPrev) * oOP;
+
+%         F = ((wNext(1) - uNext(end)) * etaDiv + etaPrev) * h / (2 * alf * h + 2 * epsilon * h + k^2);
+%         F = ((wNext(1) - uNext(end)) * etaDiv + etaPrev) * (1-alf) *  h / ((2 * alf + epsilon) * h + k^2 * (1-alf));
+               
+%         F = (wNext(1) - uNext(end) + 4 * eta + 2 * etaPrev) * h / (8 * alf * h^2 + 8 * epsilon * h + 2 * k^2);
+
+        uNext(end) = uNext(end) + k^2/h * F;
+        wNext(1) = wNext(1) - k^2/h * F;
+
+    end
+    
+%     if lpConnection
+%         wNext(1) = wNext(1) + wDampTerm;
+%     end
     
 %     wIp = wNext(1);
 %     uIp = uNext(end);
@@ -453,205 +542,248 @@ for n = 1:lengthSound
     scalingU = ones(length(u),1);
     scalingU(end) = 0.5 * (1 + alf);
 %     kinEnergyU(n) = 1/2 * h * sum (scalingU .* (1/k * (u - uPrev)).^2);
-%     kinEnergyU(n) = 1/2 * h * sum ((1/k * (u(1:end-1) - uPrev(1:end-1))).^2);
-%     connKinEnergyU(n) = 1/2 * h * scalingU(end) * (1/k * (u(end) - uPrev(end))).^2;
-%     
-%     potEnergyU(n) = c^2/(2 * h) * sum((u(2:end) - u(1:end-1)) .* (uPrev(2:end) - uPrev(1:end-1)));
-%     potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0)); % left boundary
-% %     potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((w(2) - u(end)) .* (wPrev(2) - uPrev(end))); % right boundary
-% 
-%     totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
-%     
-%     scalingW = ones(length(w),1);
-%     scalingW(1) = 0.5 * (1 + alf);
-% 
-%     kinEnergyW(n) = 1/2 * h * sum ((1/k * (w(2:end) - wPrev(2:end))).^2);
-%     connKinEnergyW(n) = 1/2 * h * scalingW(1) * (1/k * (w(1) - wPrev(1))).^2;
-%        
-%     potEnergyW(n) = c^2/(2 * h) * sum((w(2:end) - w(1:end-1)) .* (wPrev(2:end) - wPrev(1:end-1)));
-%     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % left boundary
-% 
-%     totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
-% 
-%     connPotEnergy(n) = alf * c^2/(2 * h) * sum((interpolatedPoints(1) -  interpolatedPoints(2)) .* (interpolatedPointsPrev(1) - interpolatedPointsPrev(2)));
-%     totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
-%     totTotEnergy(n) = totEnergy(n) + connPotEnergy(n) + connKinEnergyU(n) + connKinEnergyW(n);
-%    
+    kinEnergyU(n) = 1/2 * h * sum ((1/k * (u(1:end-1) - uPrev(1:end-1))).^2);
+    connKinEnergyU(n) = 1/2 * h * scalingU(end) * (1/k * (u(end) - uPrev(end))).^2;
+    
+    potEnergyU(n) = c^2/(2 * h) * sum((u(2:end) - u(1:end-1)) .* (uPrev(2:end) - uPrev(1:end-1)));
+    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0)); % left boundary
+%     potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((w(2) - u(end)) .* (wPrev(2) - uPrev(end))); % right boundary
+
+    totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
+    
+    scalingW = ones(length(w),1);
+    scalingW(1) = 0.5 * (1 + alf);
+
+    kinEnergyW(n) = 1/2 * h * sum ((1/k * (w(2:end) - wPrev(2:end))).^2);
+    connKinEnergyW(n) = 1/2 * h * scalingW(1) * (1/k * (w(1) - wPrev(1))).^2;
+       
+    potEnergyW(n) = c^2/(2 * h) * sum((w(2:end) - w(1:end-1)) .* (wPrev(2:end) - wPrev(1:end-1)));
+    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % right boundary
+
+    totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
+
+    connPotEnergyU(n) = c^2/(2 * h) * sum((interpolatedPoints(1) -  u(end)) .* (interpolatedPointsPrev(1) - uPrev(end)));
+    connPotEnergyW(n) = c^2/(2 * h) * sum((w(1) -  interpolatedPoints(2)) .* (wPrev(1) - interpolatedPointsPrev(2)));
+
+    totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
+    totTotEnergy(n) = totEnergy(n) + connKinEnergyU(n) + connKinEnergyW(n);
+%   
     %% save output
     outFree(n) = u (fs / 44100);
 
     %% draw stuff
     if n > drawStart && drawThings && mod(n, drawSpeed) == drawSpeedMod
-        
-        gridMove = true;
-        zoomed = true;       
-        interpolExplanation = false;
-
-        addingPoint = false;
-        if gridMove
-%             if addingPoint
-%                 h = 1/31.5;
-%             else
-%                 h = 1/30.5;
-%             end
+        if ~plotEnergy
+            gridMove = true;
+            zoomed = false;  
+            lpExplanation = false;
+            interpolExplanation = false;
+            includeAlpha  = false;
+            addingPoint = false;
             
-            hLocsLeft = (0:(length(u))) * h * N;
-            hLocsRight = (fliplr(1 - h * (0:(length(w))))) * N;
-            
-        else
-            hLocsLeft = (0:(length(u)));
-            hLocsRight = (fliplr(N - (0:(length(w)))));
-            subplot(311)
-        end
-        hold off;
-        uPlot = plot(hLocsLeft, [0;u], 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') ;
-
-        hold on;
-        wOffset = 0.00;
-        if addingPoint
-            if numFromBound ~= 1
-                wPlot = plot(hLocsRight(1:2), [w(1:2) + wOffset], 'Linewidth', 2, 'Color', 'r');
-                scatter(hLocsRight(1), w(1), 80, 'r', 'Marker', 'o', 'Linewidth', 2);
-                scatter(hLocsRight(2), w(2), 80, 'r', 'Marker', 'x', 'Linewidth', 2);
-                plot(hLocsRight(2:3), [w(2:3) + wOffset], ':r', 'Linewidth', 2);
-                scatter(hLocsRight(3), w(3), 50, 'r', 'Marker', 'o', 'Linewidth', 1);
-            else
-                wPlot = plot([hLocsRight(1); hLocsRight(1) + 1], [w(1); 0] + wOffset, 'Linewidth', 2, 'Color', 'r');
-                scatter(hLocsRight(1), w(1), 80, 'r', 'Marker', 'o', 'Linewidth', 2);
-                scatter(hLocsRight(1) + 1, 0, 80, 'r', 'Marker', 'x', 'Linewidth', 2);
-                plot([hLocsRight(1) + 1; hLocsRight(1) + 2], [0; -w(1)] + wOffset, ':r', 'Linewidth', 2);
-                scatter(hLocsRight(1) + 2, -w(1), 50, 'r', 'Marker', 'o', 'Linewidth', 1);
+            if lpExplanation
+                u(end) = -0.1;
+                w(1) = 0.1;
             end
+            if gridMove
+%                 if addingPoint
+%                     h = 1/31.5;
+%                 else
+%                     h = 1/30.5;
+%                 end
 
-        else   
-            wPlot = plot(hLocsRight, [w + wOffset; 0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-        end
-        if gridMove
-            eps = 1e-6;
-            xtickLocs = [0, hLocsLeft(ceil(length(u) / 2)), hLocsLeft(end), hLocsRight(1) + eps, hLocsRight(end-ceil(length(w) / 2)), N];
-            xlabelSave = ["$u_0$", "$u_l$", "$u_M\ \ \;$", "$\ \ \;w_0$", "$w_l$", "$w_{M_w}$"];        
-            if zoomed
-                if ~addingPoint
-                    scatter(hLocsLeft(end) + 1, interpolatedPoints(1), 40, 'b', 'Marker', 'o', 'Linewidth', 2)
-                    scatter(hLocsRight(1) - 1, interpolatedPoints(2), 300, 'r', 'Marker', '.', 'Linewidth', 2)
-                    if hLocsLeft(end) == hLocsRight(1)
-                        xtickLocs = [hLocsRight(1) - 1, hLocsLeft(end), hLocsLeft(end) + 1];
-                        xlabelSave = ["$w_{-1}\ $", "$u_M, w_0$", "$\ \ u_{M+1}$"]; 
-                    else 
-                        xtickLocs = [hLocsRight(1) - 1, hLocsLeft(end), hLocsRight(1), hLocsLeft(end) + 1];
-                        xlabelSave = ["$w_{-1}\ $", "$u_M$", "$w_0$", "$\ \ u_{M+1}$"]; 
-                    end
+                hLocsLeft = (0:(length(u))) * h * N;
+                hLocsRight = (fliplr(1 - h * (0:(length(w))))) * N;
+
+            else
+                hLocsLeft = (0:(length(u)));
+                hLocsRight = (fliplr(N - (0:(length(w)))));
+                subplot(311)
+            end
+            hold off;
+            uPlot = plot(hLocsLeft, [0;u], 'LineWidth' ,2, 'Marker', '.', 'MarkerSize', 20, 'Color', 'b') ;
+
+            hold on;
+            wOffset = 0.00;
+            if addingPoint
+                if numFromBound ~= 1
+                    wPlot = plot(hLocsRight(1:end-1), [w + wOffset], 'Linewidth', 2, 'Color', 'r');
+                    scatter(hLocsRight(1:end-1), w, 80, 'r', 'Marker', 'o', 'Linewidth', 2);
+    %                 scatter(hLocsRight(2), w(2), 80, 'r', 'Marker', 'x', 'Linewidth', 2);
+    %                 plot(hLocsRight(2:3), [w(2:3) + wOffset], ':r', 'Linewidth', 2);
+    %                 scatter(hLocsRight(3), w(3), 50, 'r', 'Marker', 'o', 'Linewidth', 1);
                 else
-                    scatter(hLocsLeft(end) + 1, 0, 40, 'b', 'Marker', 'o', 'Linewidth', 2)
-                    scatter(hLocsRight(1) - 1, 0, 400, 'r', 'Marker', '.', 'Linewidth', 2)
+                    wPlot = plot([hLocsRight(1); hLocsRight(1) + 1], [w(1); 0] + wOffset, 'Linewidth', 2, 'Color', 'r');
+                    scatter(hLocsRight(1), w(1), 80, 'r', 'Marker', 'o', 'Linewidth', 2);
+                    scatter(hLocsRight(1) + 1, 0, 80, 'r', 'Marker', 'x', 'Linewidth', 2);
+                    plot([hLocsRight(1) + 1; hLocsRight(1) + 2], [0; -w(1)] + wOffset, ':r', 'Linewidth', 2);
+                    scatter(hLocsRight(1) + 2, -w(1), 50, 'r', 'Marker', 'o', 'Linewidth', 1);
+                end
 
-%                     plot([hLocsLeft(end), hLocsLeft(end) + h * N], [0, 0], 'b--', 'Linewidth', 2)
-%                     xtickLocs = [hLocsLeft(end), hLocsLeft(end) + h * N, hLocsRight(1)];
-%                     xlabelSave = ["$u_M$", "$I_3'\mathbf{v}^n$", "$w_0$"];        
-                     if hLocsLeft(end) == hLocsRight(1)
-                        xtickLocs = [hLocsRight(1) - 1, hLocsLeft(end), hLocsLeft(end) + 1, hLocsRight(1) + 2];
-                        xlabelSave = ["$w_{-1}, u_{M-1}$", "$u_M, w_0$", "$\ u_{M+1}, w_1$","$w_2$"]; 
-                    else 
-                        xtickLocs = [hLocsLeft(end-1), hLocsRight(1) - 1, hLocsLeft(end), hLocsRight(1), hLocsLeft(end) + 1, hLocsRight(1) + 1, hLocsRight(1) + 2];
-                        xlabelSave = ["$u_{M-1}$", "$w_{-1}\ $", "$u_M$", "$w_0$", "$\ \ u_{M+1}$", "$w_1$", "$w_2$"]; 
-                     end
-%                      text(hLocsLeft(end) + h * N, 0.1, "$\mathcal{I}\mathbf{v}^n$", 'horizontalalignment', 'center', 'interpreter', 'latex', 'Fontsize', 16);
-                    grid on;
-                    yticks([0])
-                    text((hLocsRight(1) + hLocsLeft(end)) * 0.5, 0.1, "$\alpha = "+ num2str(round(alf * 100) / 100) + "$", ...
-                        'interpreter', 'latex', 'Fontsize', 16, ...
-                        'horizontalAlignment', 'center', ...
-                        'color', [0.5, 0.5, 0.5]);
-                end 
+            else   
+                wPlot = plot(hLocsRight, [w + wOffset; 0], 'Linewidth', 2,  'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
             end
-        else
-            xtickLocs = [0, floor(length(u) / 2), length(u), length(u) + floor(length(w) / 2), N];
-            xlabelSave = ["$u_0$", "$u_l$", "$u_M, w_0$", "$w_l$", "$w_{M_w}$"];        
-        end
-        ylim([-0.6, 0.6])
-%         ylim([-5,5])
-        xlabel("$l$", 'interpreter', 'latex')
-        grid on;
-        if zoomed
-%             xlim([hLocsLeft(end-3), hLocsRight(4)])
-            if numFromBound == -1
-%                 xlim([hLocsLeft(12), hLocsRight(5)])
-                xlim([0.3 * N, 0.7 * N])
-                xlim([hLocsLeft(end-4), hLocsRight(4)])
+            if gridMove
+                eps = 1e-6;
+                xtickLocs = [0, hLocsLeft(ceil(length(u) / 2)), hLocsLeft(end), hLocsRight(1) + eps, hLocsRight(end-ceil(length(w) / 2)), N];
+                xlabelSave = ["$u_0$", "$u_l$", "$u_M\ \ \;$", "$\ \ \;w_0$", "$w_l$", "$w_{M_w}$"];        
+                if zoomed
+                    if ~addingPoint
+                        if ~lpExplanation
+                            scatter(hLocsLeft(end) + 1, interpolatedPoints(1), 40, 'b', 'Marker', 'o', 'Linewidth', 2)
+                            scatter(hLocsRight(1) - 1, interpolatedPoints(2), 300, 'r', 'Marker', '.', 'Linewidth', 2)
+                        end
+                        if hLocsLeft(end) == hLocsRight(1)
+                            if lpExplanation
+                                xtickLocs = [hLocsLeft(end-1), hLocsLeft(end), hLocsRight(2)];
+                                xlabelSave = ["$u_{M-1}\ $", "$u_M, w_0$", "$\ \ w_{1}$"]; 
+                            else
+                                xtickLocs = [hLocsRight(1) - 1, hLocsLeft(end), hLocsLeft(end) + 1];
+                                xlabelSave = ["$w_{-1}\ $", "$u_M, w_0$", "$\ \ u_{M+1}$"]; 
+                            end
+                        else 
+                            if lpExplanation
+                                xtickLocs = [hLocsLeft(end-1), hLocsLeft(end), hLocsRight(1), hLocsRight(2)];
+                                xlabelSave = ["$u_{M-1}\ $", "$u_M$", "$w_0$", "$\ \ w_{1}$"]; 
+                            else
+                                xtickLocs = [hLocsLeft(end-1), hLocsRight(1) - 1, hLocsLeft(end), hLocsRight(1), hLocsLeft(end) + 1, hLocsRight(2)];
+                                xlabelSave = ["$u_{M-1}\ \ \ $", "$w_{-1}$", "$u_M$", "$w_0$", "$u_{M+1}$", "\ $w_1$"];
+                                if includeAlpha                                    
+                                    lHeight = -0.15;
+                                    lWidth = 0.025;
+                                    text((hLocsLeft(end) + hLocsRight(1)) / 2, lHeight + sign(lHeight) * 0.15, "$\alpha = 0.5$", 'horizontalalignment', 'center',...
+                                        'interpreter', 'latex', 'Fontsize', 16, ...
+                                        'color', [0.4, 0.4, 0.4]);
+
+                                    plot ([hLocsLeft(end), hLocsRight(1)], [lHeight, lHeight], 'Linewidth', 1,  'color', [0.4, 0.4, 0.4]);
+                                    plot ([hLocsLeft(end), hLocsLeft(end)], [lHeight + lWidth, lHeight - lWidth], 'Linewidth', 1,  'color', [0.4, 0.4, 0.4]);
+                                    plot ([hLocsRight(1), hLocsRight(1)], [lHeight + lWidth, lHeight - lWidth], 'Linewidth', 1,  'color', [0.4, 0.4, 0.4]);
+%                                     plot ([hLocsRight(1), hLocsRight(1)], [lHeight - lWidth, 0], '--', 'color', [0.4, 0.4, 0.4]);
+%                                     plot ([hLocsLeft(end), hLocsLeft(end)], [lHeight - lWidth, 0], '--', 'color', [0.4, 0.4, 0.4]);
+
+                                end
+                            end
+                        end
+                    else
+                        scatter(hLocsLeft(end) + 1, 0, 40, 'b', 'Marker', 'o', 'Linewidth', 2)
+
+                        if numFromBound == 1
+                            scatter(hLocsRight(1) - 1, 0, 400, 'r', 'Marker', '.', 'Linewidth', 2)
+                        end
+                        plot([hLocsLeft(end), hLocsLeft(end) + h * N], [0, 0], 'b--', 'Linewidth', 2)
+    %                     xtickLocs = [hLocsLeft(end), hLocsLeft(end) + h * N, hLocsRight(1)];
+    %                     xlabelSave = ["$u_M$", "$I_3'\mathbf{v}^n$", "$w_0$"];        
+                        if hLocsLeft(end) == hLocsRight(1)
+                            xtickLocs = [hLocsRight(1) - 1, hLocsLeft(end), hLocsLeft(end) + 1, hLocsRight(1) + 2];
+                            xlabelSave = ["$w_{-1}, u_{M-1}$", "$u_M, w_0$", "$\ u_{M+1}, w_1$","$w_2$"]; 
+                        else 
+                            xtickLocs = [hLocsLeft(end-2), hLocsLeft(end-1), hLocsLeft(end), hLocsRight(1), hLocsRight(2), hLocsRight(3)];
+                            xlabelSave = ["$u_{M-2}$", "$u_{M-1}$", "$u_M$", "$w_0$", "$w_1$", "$w_2$"]; 
+                         end
+                         text(hLocsLeft(end) + h * N, 0.125, "$\ \ I_3\mathbf{v}^n$", 'horizontalalignment', 'center', 'interpreter', 'latex', 'Fontsize', 18);
+                        grid on;
+                        yticks([0])
+    %                     text((hLocsRight(1) + hLocsLeft(end)) * 0.5, 0.1, "$\alpha = "+ num2str(round(alf * 100) / 100) + "$", ...
+    %                         'interpreter', 'latex', 'Fontsize', 16, ...
+    %                         'horizontalAlignment', 'center', ...
+    %                         'color', [0.5, 0.5, 0.5]);
+                    end 
+                end
             else
-                xlim([N-numFromBound - N/4, N-numFromBound + N/8])
+                xtickLocs = [0, floor(length(u) / 2), length(u), length(u) + floor(length(w) / 2), N];
+                xlabelSave = ["$u_0$", "$u_l$", "$u_M, w_0$", "$w_l$", "$w_{M_w}$"];        
+            end
+            ylim([-0.6, 0.6])
+    %         ylim([-5,5])
+            yticks([0])
+
+            xlabel("$l$", 'interpreter', 'latex')
+            grid on;
+            if zoomed
+    %             xlim([hLocsLeft(end-3), hLocsRight(4)])
+                if numFromBound == -1
+                    xlim([hLocsLeft(13), hLocsRight(4)])
+%                     xlim([0.3 * N, 0.7 * N])
+%                     xlim([hLocsLeft(end-2) - 0.5 * h * N, hLocsRight(3) + 0.5 * h * N])
+                else
+                    xlim([N-numFromBound - N/4, N-numFromBound + N/8])
+                end
+            else
+                xlim([0, N])
+            end
+            if interpolExplanation
+    %             xlim([hLocsLeft(14), hLocsLeft(14) + 6])
+
+                alfOffset = -1.2;
+                text((hLocsLeft(end) + hLocsRight(1)) * 0.5, alfOffset, "$\alpha =" + num2str(alf, 2) +"$", ... 
+                    'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+                    'Fontsize', 14, 'color', [0.5, 0.5, 0.5]);
+                plot([hLocsLeft(end), hLocsLeft(end)], [alfOffset*0.8, u(end)], '--', 'color', [0.5, 0.5, 0.5])
+                plot([hLocsRight(1), hLocsRight(1)], [alfOffset*0.8, u(end)], '--', 'color', [0.5, 0.5, 0.5])
+                plot([hLocsLeft(end), hLocsRight(1)], [alfOffset*0.8, alfOffset*0.8], 'color', [0.5, 0.5, 0.5])
+                grid off
+                axis off
+                offset = 0.3;
+                text(hLocsLeft(end-1), u(end-1) - offset, "$u_{M-1}^n$", ... 
+                    'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+                    'Fontsize', 16, 'color', 'b');
+                text(hLocsLeft(end), u(end) - offset, "$u_{M}^n$", ... 
+                    'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+                    'Fontsize', 16, 'color', 'b');
+                text(hLocsLeft(end)+1, interpolatedPoints(1) - offset, "$u_{M+1}^n$", ... 
+                    'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+                    'Fontsize', 16, 'color', 'b');
+                text(hLocsRight(1) - 1, interpolatedPoints(2) + offset, "$w_{-1}^n$", ... 
+                    'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+                    'Fontsize', 16, 'color', 'r');
+                text(hLocsRight(1), w(1) + offset, "$w_0^n$", ... 
+                    'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+                    'Fontsize', 16, 'color', 'r');
+    %             text(hLocsRight(2), w(2) + offset, "$w_1^n$", ... 
+    %                 'interpreter', 'latex', 'horizontalAlignment', 'center', ...
+    %                 'Fontsize', 16, 'color', 'r');
+                set(gcf, 'color', 'w')
+                ylim([-1.5, 1.5])
+            end
+            ax = gca;
+            ax.YTickLabel = ["$" + num2str(ax.YTick.') + repmat('\qquad',size(ax.YTickLabel,1),1) + "$"];
+    %         title("Sample = " + num2str(n) + "   N = " + num2str(floor(Ninit * 10) / 10))
+            legend([uPlot, wPlot], ["$u$", "$w$"], 'Fontsize', 16, 'interpreter', 'latex')
+%             set(gca, 'Fontsize', 16, 'Linewidth', 2,...
+%                 'TickLabelInterpreter', 'latex', ...
+%                 'xticklabel', xlabelSave, 'XTick', xtickLocs, ...
+%                 'Position', [0.02 0.184615384615385 0.950000000000001 0.801030548398969]);
+% %                 'Position', [0.02 0.129186602870813 0.950000000000001 0.85645933014354]);
+            set(gcf, 'Color', 'w');
+
+            if n == 16
+               disp("wait")
             end
         else
-            xlim([0, N])
-        end
-        if interpolExplanation
-%             xlim([hLocsLeft(14), hLocsLeft(14) + 6])
+            subplot(211)
 
-            alfOffset = -1.2;
-            text((hLocsLeft(end) + hLocsRight(1)) * 0.5, alfOffset, "$\alpha =" + num2str(alf, 2) +"$", ... 
-                'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-                'Fontsize', 14, 'color', [0.5, 0.5, 0.5]);
-            plot([hLocsLeft(end), hLocsLeft(end)], [alfOffset*0.8, u(end)], '--', 'color', [0.5, 0.5, 0.5])
-            plot([hLocsRight(1), hLocsRight(1)], [alfOffset*0.8, u(end)], '--', 'color', [0.5, 0.5, 0.5])
-            plot([hLocsLeft(end), hLocsRight(1)], [alfOffset*0.8, alfOffset*0.8], 'color', [0.5, 0.5, 0.5])
-            grid off
-            axis off
-            offset = 0.3;
-            text(hLocsLeft(end-1), u(end-1) - offset, "$u_{M-1}^n$", ... 
-                'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-                'Fontsize', 16, 'color', 'b');
-            text(hLocsLeft(end), u(end) - offset, "$u_{M}^n$", ... 
-                'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-                'Fontsize', 16, 'color', 'b');
-            text(hLocsLeft(end)+1, interpolatedPoints(1) - offset, "$u_{M+1}^n$", ... 
-                'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-                'Fontsize', 16, 'color', 'b');
-            
-            text(hLocsRight(1) - 1, interpolatedPoints(2) + offset, "$w_{-1}^n$", ... 
-                'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-                'Fontsize', 16, 'color', 'r');
-            text(hLocsRight(1), w(1) + offset, "$w_0^n$", ... 
-                'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-                'Fontsize', 16, 'color', 'r');
-%             text(hLocsRight(2), w(2) + offset, "$w_1^n$", ... 
-%                 'interpreter', 'latex', 'horizontalAlignment', 'center', ...
-%                 'Fontsize', 16, 'color', 'r');
-            set(gcf, 'color', 'w')
-            ylim([-1.5, 1.5])
-        end
-        ax = gca;
-        ax.YTickLabel = ["$" + num2str(ax.YTick.') + repmat('\qquad',size(ax.YTickLabel,1),1) + "$"];
-%         title("Sample = " + num2str(n) + "   N = " + num2str(floor(Ninit * 10) / 10))
-        legend([uPlot, wPlot], ["$u$", "$w$"], 'Fontsize', 16, 'interpreter', 'latex')
-        set(gca, 'Fontsize', 16, 'Linewidth', 2,...
-            'TickLabelInterpreter', 'latex', ...
-            'xticklabel', xlabelSave, ... % 'XTick', xtickLocs, ...
-            'Position', [0.02 0.129186602870813 0.950000000000001 0.85645933014354]);
-        set(gcf, 'Color', 'w');
+            plot([1:length(u), (1:length(w))+length(u)-1], [u; w])
+            subplot(212)
+            hold off;
+            plot((totTotEnergy(1:n) - totTotEnergy(1)))
+            hold on;
+            plot(connPotEnergyU(1:n))
+            plot(connPotEnergyW(1:n))
 
-        if n == 16
-           disp("wait")
-        end
-        
-%         subplot(312)
-%         hold off;
-%         plot(totEnergy(1:n) - totEnergy(1) + connKinEnergyU(1:n) + connKinEnergyW(1:n))
+%             plot(connPotEnergy(1:n))
 % 
-%         hold on;
-%         plot(connPotEnergy(1:n))
-% 
-%         subplot(313)
-%         plot(totTotEnergy(1:n))
-
+%             subplot(313)
+%             plot(totTotEnergy(1:n))
+        end
         drawnow;
-%         if frame <= length(M) && filmFlag == true
-%             M(frame) = getframe(gcf);
+%         if frame <= length(Mvid) && filmFlag == true
+%             Mvid(frame) = getframe(gcf);
 %             frame = frame + 1;
 %         else
-%             v = VideoWriter('dynamicGridCenter.mp4', 'MPEG-4');
+%             v = VideoWriter('dynamicGridCenterZoomedOut.mp4', 'MPEG-4');
 %             v.FrameRate = 15;
 %             open(v)
-%             writeVideo(v, M);
+%             writeVideo(v, Mvid);
 %             close(v)
 %             filmFlag = false;
 %             break;
@@ -673,8 +805,8 @@ if ~setting
 end
 % subplot(2,1,1)
 hold on
-% plot((1:lengthSound) / fs, outFree)
-% 
+plot((1:lengthSound) / fs, outFree)
+
 % subplot(2,1,2)
 % hold on;
 % outfft = fft(outFree);

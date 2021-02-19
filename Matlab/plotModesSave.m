@@ -1,14 +1,14 @@
 %to be used with modalAnalysis.m
 modesSave(modesSave==0) = nan;
 if (Nend-NinitSave) < 0
-    modesSaveRange = 2:length(modesSave);
+    modesSaveRange = 2:size(modesSave, 1);
     loopStartRange1 = 2:length(loopStart);
 else
-    modesSaveRange = 1:length(modesSave);
+    modesSaveRange = 1:size(modesSave,1);
     loopStartRange1 = 1:length(loopStart);
 
 end
-if interpolation == "cubic" && plotMulti 
+if interpolation == "quadratic" && plotMulti && ~lowPassConnection 
     hold on;
 else
 end
@@ -29,9 +29,9 @@ if ~plotMulti
     %     figure
     set(h, {'color', 'Linewidth'}, [num2cell(colours, 2), num2cell(2 * ones(floor(maxNumberOfPoints), 1))])
 else
-    if interpolation == "linear"
+    if interpolation == "quadratic" && lowPassConnection
         set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.5, 0.5, 0.5]}, {1}, {'--'}]);
-    elseif interpolation == "cubic"
+    elseif interpolation == "quadratic"
         set(h, {'color', 'Linewidth', 'Linestyle'}, [{[0.1, 0.1, 0.1]}, {1}, {'-'}]);
     elseif interpolation == "sinc"
         if fullSinc == 0
