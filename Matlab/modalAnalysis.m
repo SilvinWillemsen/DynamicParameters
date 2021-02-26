@@ -67,7 +67,7 @@ lambdaFactor = 1;
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = 2;
+numFromBound = 1;
 
 % sinc settings
 even = true; % for sinc interpolation only
