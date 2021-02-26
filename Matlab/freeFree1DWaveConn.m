@@ -1,10 +1,10 @@
-clear all;
+% clear all;
 % close all;
 clc;
 
 setting = false; % true is drawing, false is sound
 plotEnergy = false;
-drawSpeed = 100;
+drawSpeed = 1;
 if drawSpeed == 1
     drawSpeedMod = 0;
 else 
@@ -14,6 +14,7 @@ fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
 
 dispCorr = true;
+corrAlf = false;
 lpConnection = false;
 lpExponent = 30;
 
@@ -22,7 +23,7 @@ drawThings = setting;
 excite = true;
 exciteConnection = ~excite;
 
-numFromBound = -1;
+numFromBound = 1;
 
 %{
 Decides whether to use the full range or not 
@@ -35,7 +36,7 @@ fullSinc = 3;
 fSCentered = false; % "true" only works if numFromBound == -1
 
 % if setting
-    lengthSound = fs * 10;       % Length of the simulation
+    lengthSound = 10*fs;       % Length of the simulation
 % else
 %     lengthSound = fs * 1.5;
 % end
@@ -46,9 +47,9 @@ changeC = true; % set to true for dynamic changes in wavespeed
 sinusoidalChange = false;
 freq = 10;
 
-Ninit = 300 * fs / 44100;           % edit how many points you want
+Ninit = 60.0 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-Nend = 15 * fs / 44100;
+Nend = 30.0 * fs / 44100;
 cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
@@ -76,7 +77,7 @@ else
     u = zeros(M, 1);
 end
 
-excitationWidth = 0.25;
+excitationWidth = 0.1;
 excitationLoc = 1/5;
 loc = excitationLoc * N;
 width = floor(max (4.0, excitationWidth * N));
@@ -126,6 +127,10 @@ if exciteConnection
 end
 wPrev = w;
 
+% u = uSave;
+% uPrev = uPrevSave;
+% w = wSave;
+% wPrev = wPrevSave;
 % initialise laplacians
 eu = ones(length(u), 1);
 Dxxu = spdiags([eu -2*eu eu], -1:1, length(u),length(u));
@@ -141,7 +146,9 @@ outFree = zeros(floor(lengthSound), 1);
 if sinusoidalChange
     cVec = min(cInit, cEnd) + 0.5 * (abs(cEnd - cInit) * (1 + sign(cInit - cEnd) * cos (2 * pi * freq * (0:lengthSound-1) / fs)));
 else
-    cVec = linspace(cInit, cEnd, lengthSound);
+%     cVec = [linspace(cInit, cEnd, floor(lengthSound/2)), cEnd * ones(1, ceil(lengthSound/2))];
+    cVec = linspace(cInit, cEnd, floor(lengthSound));
+
 end
 %% recording
 Mvid(200) = struct('cdata',[],'colormap',[]);
@@ -164,8 +171,8 @@ NVec = linspace(Ninit, Nend, lengthSound);
 diffSave = zeros(lengthSound, 1);
 diffSaveIdx = 0;
 for n = 1:lengthSound  
- 
-%     % change wave speed
+
+    % change wave speed
     if changeC
         c = cVec(n);
     elseif changeN
@@ -495,16 +502,24 @@ for n = 1:lengthSound
     if dispCorr
         epsilon = 0;
 
-        etaDiv = 0.5;
+        etaDiv = 1;
         
         eta = (w(1) - u(end)) * etaDiv;
         etaPrev = (wPrev(1) - uPrev(end)) * etaDiv;
                
-        sig0 = 1;
+        if corrAlf && alf < 0.001
+            sig0 = k;
+            disp("alf < 0.001")
+%             if n ~= 1
+%                 drawThings = true;
+%             end
+        else
+            sig0 = 1;
+        end
         rForce = (1 - sig0 / k) / (1 + sig0 / k);
-        oOP = (h * (1 + sig0 / k) * (1-alf)) / (2 * h * alf + k^2 * (1 + sig0 / k) * (1-alf));
+        oOP = (h * (1 + sig0 / k) * (1-alf)) / (2 * h * (alf + epsilon) + 2 * etaDiv * k^2 * (1 + sig0 / k) * (1-alf));
         
-        F = ((wNext(1) - uNext(end)) * 0.5 + rForce * etaPrev) * oOP;
+        F = ((wNext(1) - uNext(end)) * etaDiv + rForce * etaPrev) * oOP;
         
 %         oOP = ((1-alf) * h * k + 2 * sig0 * h * (alf + epsilon)) / (2 * (alf + epsilon) * k * h + (1-alf) * k^3 + 2 * sig0 * k^2 * (alf + epsilon));
 %         rForce = ((1-alf) * k - 2 * sig0 * (alf + epsilon)) / ((1-alf) * k + 2 * sig0 * (alf + epsilon));
@@ -799,13 +814,12 @@ for n = 1:lengthSound
 end
 if ~setting
     figure
-    spectrogram(outFree,512,64,512, fs)
-    view(90, -90)
-    set(gcf, 'color', 'w')
+    spectrogram(outputD,512,64,512, curFs, 'yaxis');
+%     set(gcf, 'color', 'w')
 end
 % subplot(2,1,1)
-hold on
-plot((1:lengthSound) / fs, outFree)
+% hold on
+% plot((1:lengthSound) / fs, outFree)
 
 % subplot(2,1,2)
 % hold on;

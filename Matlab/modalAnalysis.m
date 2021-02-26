@@ -1,4 +1,4 @@
-close all;
+% close all;
 firstIteration = true;
 
 if firstIteration
@@ -8,12 +8,18 @@ else
     figure('Position', [200, 200, 1200, 450])
     set(gcf, 'color', 'w');
 end
-% figure;
+figure;
+drawSpeed = 100;
+drawThings = true;
 loopingN = false;
-loopNStart = 5; % also use for Ninit an Nend
-loopNend = 200;
+loopNStart = 15.0; % also use for Ninit an Nend
+loopNend = 20;
 plotModeShapesBool = ~firstIteration;
 
+changeN = true; % if we want to change N linearly rather than c
+
+dispCorr = true;
+dispCorrType = 1;
 lowPassConnection = false;
 lpExponent = 10;
 
@@ -58,7 +64,7 @@ lambdaFactor = 1;
     >3: (Expected behaviour) Selects where to add points (to left string).
 %}
 
-numFromBound = -1;
+numFromBound = 1;
 
 % sinc settings
 even = true; % for sinc interpolation only
@@ -93,15 +99,21 @@ for Nloop = range
     N = floor(1/h);             % recalculate (should be exactly equal to Ninit)
     NinitSave = Ninit;
     
-    cInit = h/k;
-    cEnd = 1/(Nend * k);
-    cVec = linspace (cInit, cEnd, loopAmount);
+    if changeN
+        Nvec = linspace(Ninit, Nend, loopAmount+1);
+        cVec = 1./(Nvec * k);
+    else
+        cInit = h/k;
+        cEnd = 1/(Nend * k);
+        cVec = linspace (cInit, cEnd, loopAmount+1);
+
+    end
     
     if interpolation == "none"
         h = 1/N;
     end
     
-    lambdaSq = (lambdaFactor * cInit * k / h)^2;
+    lambdaSq = (lambdaFactor * cVec(1) * k / h)^2;
     
     
     % Create B-matrix
@@ -138,6 +150,11 @@ for Nloop = range
     maxNumberOfPoints = max(Ninit, Nend);
     if firstIteration
         modesSave = zeros(loopAmount, floor(maxNumberOfPoints));
+        sigmaSave = zeros(loopAmount, floor(maxNumberOfPoints));
+                
+        modesSave2 = zeros(loopAmount, floor(maxNumberOfPoints));
+        sigmaSave2 = zeros(loopAmount, floor(maxNumberOfPoints));
+
     end
     NPrev = N;
     j = 1;
@@ -210,15 +227,69 @@ for Nloop = range
                 BFull(M + 1, (M-1) : M) = [(1-alf), alf];
             end
         elseif interpolation == "quadratic"
+            BFull = BFullInit;
             ip = lambdaSq * [(alf - 1)/(alf + 1), ...
                   1, ...
-                  -(alf - 1)/(alf + 1)];
+                  -(alf - 1)/(alf + 1)];            
             if numFromBound == 1
                 BFull(M, (M):(M + 1)) = BFullInit(M, (M):(M + 1)) + ip(1:2);
                 BFull(M+1, (M-1):(M+1)) = BFullInit(M+1, (M-1):(M+1)) + fliplr(ip);
             else
                 BFull(M, (M):(M + 2)) = BFullInit(M, (M):(M + 2)) + ip;
                 BFull(M+1, (M-1):(M+1)) = BFullInit(M+1, (M-1):(M+1)) + fliplr(ip);
+            end
+            if dispCorr
+                sig0 = 10;
+
+%                 if dispCorrType == 0
+    %                 alf = (0.001:0.001:1)';
+                    BFullBeforeConn = BFull;
+                    Psi = (h * (1+sig0/k) * (1-alf)) ./ (2 * h * alf + 2 * k^2 * (1+ sig0/k) * (1-alf));
+                    psi = Psi * k^2 / h;
+                    A = (alf - 1) ./ (alf + 1);
+                    connEff = psi .* [-(1 + A), 1 - A,  A - 1, A + 1];
+                    r = (1-sig0/k) / (1+sig0/k);
+                    if numFromBound == 1
+                        BFull(M, M-1:M+1) =  BFull(M, M-1:M+1) + connEff(1:3);
+                        BFull(M+1, M-1:M+1) = BFull(M+1, M-1:M+1) + fliplr(connEff(2:4));
+                    else
+                        BFull(M, M-1:M+2) = BFull(M, M-1:M+2) + connEff;
+                        BFull(M+1, M-1:M+2) = BFull(M+1, M-1:M+2) + fliplr(connEff);
+
+                    end
+                    C = -eye(N);
+                    C(M, M) = -(1 - psi + psi * r);
+                    C(M, M+1) = -(psi - psi * r);
+                    C(M+1, M) = -(psi - psi * r);
+                    C(M+1, M+1) = -(1 - psi + psi * r);
+
+
+                    Q = [BFull, C; ... 
+                         eye(size(BFull)), zeros(size(BFull))];
+                    if alf == 0
+                        Q2 = Q;
+                    else
+%                 else
+                    %% other way
+                        epsilon = 0;
+                        beta = (1-alf) / (alf + epsilon);
+
+                        J = [zeros(1, M-1), 1/h, -1/h, zeros(1, Mw-1)]';
+                        etaVec = [zeros(1, M-1), -1, 1, zeros(1, Mw-1)];
+                        Amat = eye(N) - beta * k^2 * (1+sig0/k) / 2 * (J * etaVec);
+                        Bmat = BFullBeforeConn;
+                        Cmat = -(eye(N) - beta * k^2 * (1-sig0/k) / 2 * (J * etaVec));
+
+                        Q2 = [Amat\Bmat,       Amat\Cmat;...
+                             eye(N) ,  zeros(N)];
+                    end
+%                     if mod(i, 1) == 0
+%                         surf(Q-Q2) 
+%                         zlim([-1e-5, 1e-5])
+%                         drawnow;
+%                     end
+
+%                 end
             end
         elseif interpolation == "cubic"
             ip = [alf * (alf - 1) * (alf - 2) / -6, ...
@@ -610,13 +681,30 @@ for Nloop = range
         end
         % imagesc(BFull)
         % drawnow;  
-        [~, D, W] = eig(BFull, 'vector');
+        [~, D, W] = eig (BFull, 'vector');
         if plotModeShapesBool
     %         order = Ninit:-1:1;
             plotModeShapes;
         end
         if firstIteration
-            modesSave(i, 1:N) = sort(1/(2 * pi * k) * acos (1/2 * D));
+            if mod(i, drawSpeed) == 1 && drawThings
+                [f, sigma] = analyseQ (Q, k, false, true);
+                [f2, sigma2] = analyseQ (Q2, k, true, true);
+
+%                 ylim([-50, 0]);
+                title(num2str(N+alf))
+                drawnow;
+            else
+                [f, sigma] = analyseQ (Q, k, false, false);
+                [f2, sigma2] = analyseQ (Q2, k, false, false);
+
+            end
+            modesSave(i, 1:size(f)) = f;
+            sigmaSave(i, 1:size(sigma)) = sigma;
+            modesSave2(i, 1:size(f2)) = f2;
+            sigmaSave2(i, 1:size(sigma2)) = sigma2;
+
+            %             modesSave(i, 1:N) = sort(1/(2 * pi * k) * acos (1/2 * D));
         end
     end
     if addLastPoint && firstIteration
@@ -630,7 +718,18 @@ for Nloop = range
 
     drawnow;
 end
+%%
+figure;
+for i = 1:1000:length(sigmaSave)
+    testC = (Nvec(i) - floor(Nvec(i))) * 0.9
+    plot (sigmaSave(i, :), 'color', [testC, testC, testC], 'Linewidth', 1)
+%     hold on
+    ylim([-60, 0])
+    pause(1)
+    drawnow;
+end
 
+%%
 % for i = 1:10:loopAmount
 %     plot(diff(diff(real(modesSave(i, ~isnan(modesSave(i, :)))))));
 % %     ylim([0.75 * real(modesSave(i, 1)) , real(modesSave(i, 1))]);

@@ -1,6 +1,7 @@
 clc;
 
 loadFiles = true;
+onlyOutput = false;
 if loadFiles
 %     clear all;
     mode = "Release";
@@ -172,7 +173,7 @@ if plotSpectrogram
 %         subplot(211)
 %         figure;
         spectrogram(outputD,512,64,512, curFs, 'yaxis');
-        set(gca, 'Fontsize', 16, 'Fontname', 'Times');
+%         set(gca, 'Fontsize', 16, 'Fontname', 'Times');
 %         figure;
 %         plot(outputD)
         
