@@ -1,9 +1,10 @@
-% clear all;
-% close all;
+clear all;
+close all;
 clc;
 
-setting = false; % true is drawing, false is sound
-plotEnergy = false;
+setting = true; % true is drawing, false is sound
+plotEnergy = true;
+plotROCEnergy = false;
 drawSpeed = 1;
 if drawSpeed == 1
     drawSpeedMod = 0;
@@ -13,7 +14,7 @@ end
 fs = 44100;             % Sample rate
 k = 1/fs;               % Time step
 
-dispCorr = true;
+dispCorr = false;
 corrAlf = false;
 lpConnection = false;
 lpExponent = 30;
@@ -23,7 +24,7 @@ drawThings = setting;
 excite = true;
 exciteConnection = ~excite;
 
-numFromBound = 1;
+numFromBound = -1;
 
 %{
 Decides whether to use the full range or not 
@@ -36,7 +37,7 @@ fullSinc = 3;
 fSCentered = false; % "true" only works if numFromBound == -1
 
 % if setting
-    lengthSound = 10*fs;       % Length of the simulation
+    lengthSound = fs;       % Length of the simulation
 % else
 %     lengthSound = fs * 1.5;
 % end
@@ -47,9 +48,9 @@ changeC = true; % set to true for dynamic changes in wavespeed
 sinusoidalChange = false;
 freq = 10;
 
-Ninit = 60.0 * fs / 44100;           % edit how many points you want
+Ninit = 160.0 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-Nend = 30.0 * fs / 44100;
+Nend = 160.0 * fs / 44100;
 cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
@@ -78,16 +79,16 @@ else
 end
 
 excitationWidth = 0.1;
-excitationLoc = 1/5;
+excitationLoc = 4/5;
 loc = excitationLoc * N;
-width = floor(max (4.0, excitationWidth * N));
+width = floor(max (2.0, excitationWidth * N));
 raisedCosStart = floor (loc - width * 0.5);
 raisedCosEnd = raisedCosStart + width;
 exciteForFigure = false;
 
-if excite
-    u(raisedCosStart : raisedCosEnd) = 0.5 * (1 - cos (2.0 * pi * ((raisedCosStart:raisedCosEnd)-raisedCosStart) / width));
-%     testPoint = floor(Ninit * 0.3 / 2);
+if excite && loc < M
+        u(raisedCosStart : raisedCosEnd) = 0.5 * (1 - cos (2.0 * pi * ((raisedCosStart:raisedCosEnd)-raisedCosStart) / width));
+        %     testPoint = floor(Ninit * 0.3 / 2);
 %     u(floor(N/3.14)-testPoint:floor(N/3.14)+testPoint) = hann(testPoint * 2 + 1); % use hann window for excitation
 %     u(end-1) = 1;
 end
@@ -107,6 +108,13 @@ else
     wNext = zeros(numFromBound, 1);
     w = zeros(numFromBound, 1);
 end
+
+if excite && loc > M
+    raisedCosStart = raisedCosStart - M;
+    raisedCosEnd = raisedCosEnd - M;
+    w(raisedCosStart : raisedCosEnd) = 0.5 * (1 - cos (2.0 * pi * ((raisedCosStart:raisedCosEnd)-raisedCosStart) / width));
+end
+
 
 if exciteForFigure
     if Ninit ~= 30
@@ -159,7 +167,11 @@ interpolatedPoints = [0; 0];
 %% plotting
 % figure('Position', [0, 0, 800, 200])
 if setting
-    figure('Position', [0, 0, 500, 130])
+    if plotEnergy
+        figure('Position', [0, 0, 700, 500])
+    else
+        figure('Position', [0, 0, 500, 130])
+    end
 end
 
 uSave = [];
@@ -170,6 +182,10 @@ MwSave = [];
 NVec = linspace(Ninit, Nend, lengthSound);
 diffSave = zeros(lengthSound, 1);
 diffSaveIdx = 0;
+
+boundaryEnergyUH = zeros(lengthSound, 1);
+boundaryEnergyWH = zeros(lengthSound, 1);
+
 for n = 1:lengthSound  
 
     % change wave speed
@@ -553,36 +569,85 @@ for n = 1:lengthSound
         MwSave = [MwSave; length(w)];
     end
     %% energies
+    epsilonUr = 1 + alf;
+    epsilonWr = 1 + alf;
+
     
     scalingU = ones(length(u),1);
     scalingU(end) = 0.5 * (1 + alf);
-%     kinEnergyU(n) = 1/2 * h * sum (scalingU .* (1/k * (u - uPrev)).^2);
-    kinEnergyU(n) = 1/2 * h * sum ((1/k * (u(1:end-1) - uPrev(1:end-1))).^2);
-    connKinEnergyU(n) = 1/2 * h * scalingU(end) * (1/k * (u(end) - uPrev(end))).^2;
+    kinEnergyU(n) = 1/2 * h * sum (scalingU .* (1/k * (u - uPrev)).^2);
+%     kinEnergyU(n) = 1/2 * h * sum ((1/k * (u(1:end-1) - uPrev(1:end-1))).^2);
+%     connKinEnergyU(n) = 1/2 * h * scalingU(end) * (1/k * (u(end) - uPrev(end))).^2;
     
     potEnergyU(n) = c^2/(2 * h) * sum((u(2:end) - u(1:end-1)) .* (uPrev(2:end) - uPrev(1:end-1)));
-    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((u(1) - 0) .* (uPrev(1) - 0)); % left boundary
-%     potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * sum((w(2) - u(end)) .* (wPrev(2) - uPrev(end))); % right boundary
+    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * (u(1) - 0) * (uPrev(1) - 0); % left boundary
 
+    idx = n - (1  * (n>1));
+    boundaryEnergyU(n) = c^2 * epsilonUr / (16 * h * k) * (uNext(end) - uPrev(end)) * (interpolatedPoints(1) - 2 * u(end) + u(end-1));
+    boundaryEnergyUH(n) = k * boundaryEnergyU(n) + boundaryEnergyUH(idx);
+    
     totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
     
     scalingW = ones(length(w),1);
     scalingW(1) = 0.5 * (1 + alf);
+    
+    kinEnergyW(n) = 1/2 * h * sum ((1/k * scalingW .* (w - wPrev)).^2);
 
-    kinEnergyW(n) = 1/2 * h * sum ((1/k * (w(2:end) - wPrev(2:end))).^2);
-    connKinEnergyW(n) = 1/2 * h * scalingW(1) * (1/k * (w(1) - wPrev(1))).^2;
+%     kinEnergyW(n) = 1/2 * h * sum ((1/k * (w(2:end) - wPrev(2:end))).^2);
+%     connKinEnergyW(n) = 1/2 * h * scalingW(1) * (1/k * (w(1) - wPrev(1))).^2;
        
     potEnergyW(n) = c^2/(2 * h) * sum((w(2:end) - w(1:end-1)) .* (wPrev(2:end) - wPrev(1:end-1)));
     potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % right boundary
+    
+    boundaryEnergyW(n) = c^2 * epsilonWr / (16 * h * k) * (wNext(1) - wPrev(1)) * (interpolatedPoints(2) - 2 * w(1) + w(2));
+    boundaryEnergyWH(n) = k * boundaryEnergyW(n) + boundaryEnergyWH(idx);
 
     totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
 
-    connPotEnergyU(n) = c^2/(2 * h) * sum((interpolatedPoints(1) -  u(end)) .* (interpolatedPointsPrev(1) - uPrev(end)));
-    connPotEnergyW(n) = c^2/(2 * h) * sum((w(1) -  interpolatedPoints(2)) .* (wPrev(1) - interpolatedPointsPrev(2)));
+%     connPotEnergyU(n) = c^2/(2 * h) * (interpolatedPoints(1) -  u(end)) * (interpolatedPointsPrev(1) - uPrev(end));
+%     connPotEnergyW(n) = c^2/(2 * h) * (w(1) -  interpolatedPoints(2)) * (wPrev(1) - interpolatedPointsPrev(2));
+
+%     connPotEnergyU(n) = c^2/(2 * h) * (w(2) -  u(end)) * (wPrev(2) - uPrev(end));
+%     connPotEnergyW(n) = c^2/(2 * h) * (w(1) -  u(end-1)) * (wPrev(1) - uPrev(end-1));
+
 
     totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
-    totTotEnergy(n) = totEnergy(n) + connKinEnergyU(n) + connKinEnergyW(n);
+    totTotEnergy(n) = totEnergy(n) + boundaryEnergyUH(idx) + boundaryEnergyWH(idx);% + connKinEnergyU(n) + connKinEnergyW(n);% + connPotEnergyU(n) + connPotEnergyU(n);
 %   
+
+    %% ROC energies
+    Mw = length(w);
+
+    scalingROCU = ones(M,1);
+    scalingROCU(end) = epsilonUr / 2;
+
+    scalingROCW = ones(length(w),1);
+    scalingROCW(1) = epsilonWr / 2;
+    
+    potEnergyRangeU = 2:M-1;
+    potEnergyRangeW = 2:Mw-1;
+
+    rOCKinEnergyU(n) = h / (2 * k^3) * sum(scalingROCU .* (uNext - uPrev) .* (uNext - 2 * u + uPrev));
+    rOCPotEnergyU(n) = c^2 / (2 * h * k) * sum((uNext(potEnergyRangeU) - uPrev(potEnergyRangeU)) ...
+        .* (u(potEnergyRangeU+1) - 2 * u(potEnergyRangeU) + u(potEnergyRangeU-1))) ...
+        + c^2 * epsilonUr / (4 * h * k) * (uNext(M) - uPrev(M)) * (interpolatedPoints(1) - 2 * u(M) + u(M-1));
+    rOCconnectionU(n) = c^2 * epsilonUr / (4 * h * k) * (uNext(M) - uPrev(M)) * (interpolatedPoints(1) - 2 * u(M) + u(M-1));
+    
+    rOCPotEnergyU(n) = rOCPotEnergyU(n) + c^2 / (2 * h * k) * (uNext(1) - uPrev(1)) ...
+        * (u(2) - 2 * u(1) + 0); % left boundary
+    
+    rOCKinEnergyW(n) = h / (2 * k^3) * sum(scalingROCW .* (wNext - wPrev) .* (wNext - 2 * w + wPrev));
+    rOCPotEnergyW(n) = c^2 / (2 * h * k) * sum((wNext(potEnergyRangeW) - wPrev(potEnergyRangeW)) ...
+        .* (w(potEnergyRangeW+1) - 2 * w(potEnergyRangeW) + w(potEnergyRangeW-1))) ...
+        + c^2 * epsilonWr / (4 * h * k) * (wNext(1) - wPrev(1)) * (interpolatedPoints(2) - 2 * w(1) + w(2));
+    rOCconnectionW(n) = c^2 * epsilonWr / (4 * h * k) * (wNext(1) - wPrev(1)) * (interpolatedPoints(2) - 2 * w(1) + w(2));
+    rOCPotEnergyW(n) = rOCPotEnergyW(n) + c^2 / (2 * h * k) * (wNext(end) - wPrev(end)) ...
+        * (0 - 2 * w(end) + w(end-1)); % right boundary
+
+    totROCenergy(n) = rOCKinEnergyU(n) - rOCPotEnergyU(n) + rOCKinEnergyW(n) - rOCPotEnergyW(n);% + rOCconnectionU(n) - rOCconnectionW(n);
+    
+    
+
     %% save output
     outFree(n) = u (fs / 44100);
 
@@ -775,21 +840,40 @@ for n = 1:lengthSound
                disp("wait")
             end
         else
-            subplot(211)
+            
+            if plotROCEnergy
+                subplot(311)
 
-            plot([1:length(u), (1:length(w))+length(u)-1], [u; w])
-            subplot(212)
-            hold off;
-            plot((totTotEnergy(1:n) - totTotEnergy(1)))
-            hold on;
-            plot(connPotEnergyU(1:n))
-            plot(connPotEnergyW(1:n))
+                plot([1:length(u), (1:length(w))+length(u)-1], [u; w])
+                subplot(312)
+                plot(totROCenergy(1:n));
 
-%             plot(connPotEnergy(1:n))
-% 
-%             subplot(313)
-%             plot(totTotEnergy(1:n))
-        end
+                subplot(313)
+                hold off;
+                plot (rOCconnectionU(1:n));
+    %             plot(rOCKinEnergyU(1:n));
+                hold on;
+                plot (rOCconnectionW(1:n));
+
+    %             plot(rOCPotEnergyU(1:n));
+    %             plot(rOCKinEnergyW(1:n));
+    %             plot(rOCPotEnergyW(1:n));
+                pause(0.1)
+            else
+                subplot(311)
+                plot([1:length(u), (1:length(w))+length(u)-1], [u; w])
+
+                subplot(312)
+                plot(totTotEnergy(1:n) / totTotEnergy(1) - 1);
+%                 plot(totTotEnergy(1:n))
+                subplot(313)
+                hold off;
+                plot((totEnergy(2:n) - totEnergy(1)));
+
+                hold on;
+                plot(-boundaryEnergyUH(1:n-1)-boundaryEnergyWH(1:n-1));
+
+            end
         drawnow;
 %         if frame <= length(Mvid) && filmFlag == true
 %             Mvid(frame) = getframe(gcf);
@@ -803,6 +887,7 @@ for n = 1:lengthSound
 %             filmFlag = false;
 %             break;
 %         end
+        end
         
     end
     uPrev = u;
