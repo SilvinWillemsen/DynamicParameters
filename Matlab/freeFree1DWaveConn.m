@@ -48,9 +48,9 @@ changeC = true; % set to true for dynamic changes in wavespeed
 sinusoidalChange = false;
 freq = 10;
 
-Ninit = 160.0 * fs / 44100;           % edit how many points you want
+Ninit = 160.12356 * fs / 44100;           % edit how many points you want
 h = 1/Ninit;
-Nend = 160.0 * fs / 44100;
+Nend = 160.12356 * fs / 44100;
 cEnd = 1/(Nend*k);
 cInit = h/k;            % calculate wave speed
 c = cInit;
@@ -79,7 +79,7 @@ else
 end
 
 excitationWidth = 0.1;
-excitationLoc = 4/5;
+excitationLoc = 1/5;
 loc = excitationLoc * N;
 width = floor(max (2.0, excitationWidth * N));
 raisedCosStart = floor (loc - width * 0.5);
@@ -507,6 +507,7 @@ for n = 1:lengthSound
     %% left half string
     uNext = 2 * u + lambdaSq * Dxxu * u - uPrev;
     uNext(end) = uNext(end) + lambdaSq * interpolatedPoints(1);
+%     uNext(end) = uNext(end) + lambdaSq * w(2);
 %     if lpConnection
 %         uNext(end) = uNext(end) + uDampTerm;
 %     end
@@ -514,7 +515,7 @@ for n = 1:lengthSound
     %% right half string
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
     wNext(1) = wNext(1) + lambdaSq * interpolatedPoints(2);
-    
+%     wNext(1) = wNext(1) + lambdaSq * u(end-1);
     if dispCorr
         epsilon = 0;
 
@@ -569,51 +570,65 @@ for n = 1:lengthSound
         MwSave = [MwSave; length(w)];
     end
     %% energies
-    epsilonUr = 1 + alf;
-    epsilonWr = 1 + alf;
-
     
+    % define the weights of the inner boundaries for the energy analysis
+    epsilonUr = (1 + alf);
+    epsilonWr = (1 + alf);
+        
+    % scaling for kinetic energies
     scalingU = ones(length(u),1);
-    scalingU(end) = 0.5 * (1 + alf);
-    kinEnergyU(n) = 1/2 * h * sum (scalingU .* (1/k * (u - uPrev)).^2);
-%     kinEnergyU(n) = 1/2 * h * sum ((1/k * (u(1:end-1) - uPrev(1:end-1))).^2);
-%     connKinEnergyU(n) = 1/2 * h * scalingU(end) * (1/k * (u(end) - uPrev(end))).^2;
-    
-    potEnergyU(n) = c^2/(2 * h) * sum((u(2:end) - u(1:end-1)) .* (uPrev(2:end) - uPrev(1:end-1)));
-    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * (u(1) - 0) * (uPrev(1) - 0); % left boundary
-
-    idx = n - (1  * (n>1));
-    boundaryEnergyU(n) = c^2 * epsilonUr / (16 * h * k) * (uNext(end) - uPrev(end)) * (interpolatedPoints(1) - 2 * u(end) + u(end-1));
-    boundaryEnergyUH(n) = k * boundaryEnergyU(n) + boundaryEnergyUH(idx);
-    
-    totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
+    scalingU(end) = epsilonUr / 2;
     
     scalingW = ones(length(w),1);
-    scalingW(1) = 0.5 * (1 + alf);
-    
-    kinEnergyW(n) = 1/2 * h * sum ((1/k * scalingW .* (w - wPrev)).^2);
+    scalingW(1) = epsilonWr / 2;
 
-%     kinEnergyW(n) = 1/2 * h * sum ((1/k * (w(2:end) - wPrev(2:end))).^2);
-%     connKinEnergyW(n) = 1/2 * h * scalingW(1) * (1/k * (w(1) - wPrev(1))).^2;
+    % used for the boundary integration
+    idx = n - (1  * (n>1));
+   
+    %%%% Energy u %%%%
+    
+    % Kinetic energy
+    kinEnergyU(n) = 1/2 * h * sum (scalingU .* (1/k * (u - uPrev)).^2);
+        
+    % Potential energy.
+    potEnergyU(n) = c^2/(2 * h) * sum((u(2:end) - u(1:end-1)) .* (uPrev(2:end) - uPrev(1:end-1)));
+    % As the outer (left) boundary is fixed it is not included in the state and the energy needs to be calculated on a separate line
+    potEnergyU(n) = potEnergyU(n) + c^2/(2 * h) * (u(1) - 0) * (uPrev(1) - 0);
+
+    % Sum for total energy u
+    totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
+
+    
+    %%%% Energy w %%%%
+
+    % Kinetic energy
+    kinEnergyW(n) = 1/2 * h * sum (scalingW .* (1/k * (w - wPrev)).^2);
        
+    % Potential energy
     potEnergyW(n) = c^2/(2 * h) * sum((w(2:end) - w(1:end-1)) .* (wPrev(2:end) - wPrev(1:end-1)));
-    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * sum((0 - w(end)) .* (0 - wPrev(end))); % right boundary
+    % As the outer (right) boundary is fixed it is not included in the state and the energy needs to be calculated on a separate line
+    potEnergyW(n) = potEnergyW(n) + c^2/(2 * h) * (0 - w(end)) * (0 - wPrev(end));
     
-    boundaryEnergyW(n) = c^2 * epsilonWr / (16 * h * k) * (wNext(1) - wPrev(1)) * (interpolatedPoints(2) - 2 * w(1) + w(2));
-    boundaryEnergyWH(n) = k * boundaryEnergyW(n) + boundaryEnergyWH(idx);
-
+    % Sum for total energy w
     totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
+    
+    
+    % Total energy without the boundary energies
+    totEnergy(n) = totEnergyU(n) + totEnergyW(n);
 
-%     connPotEnergyU(n) = c^2/(2 * h) * (interpolatedPoints(1) -  u(end)) * (interpolatedPointsPrev(1) - uPrev(end));
-%     connPotEnergyW(n) = c^2/(2 * h) * (w(1) -  interpolatedPoints(2)) * (wPrev(1) - interpolatedPointsPrev(2));
+    %%%% Inner boundaries %%%%
+    
+    % Boundary (rate of change) energy
+    boundaryEnergyU(n) = c^2 / (2 * k) * (uNext(end) - uPrev(end)) * (1/h * (u(end) - u(end-1)) + epsilonUr * h / (2 * h^2) * (interpolatedPoints(1) - 2 * u(end) + u(end-1)));
+    boundaryEnergyW(n) = c^2 / (2 * k) * (wNext(1) - wPrev(1)) * (-1/h * (w(2) - w(1)) + epsilonWr * h / (2 * h^2) * (interpolatedPoints(2) - 2 * w(1) + w(2)));
 
-%     connPotEnergyU(n) = c^2/(2 * h) * (w(2) -  u(end)) * (wPrev(2) - uPrev(end));
-%     connPotEnergyW(n) = c^2/(2 * h) * (w(1) -  u(end-1)) * (wPrev(1) - uPrev(end-1));
-
-
-    totEnergy(n) = totEnergyU(n) + totEnergyW(n);% + connEnergy(n);
-    totTotEnergy(n) = totEnergy(n) + boundaryEnergyUH(idx) + boundaryEnergyWH(idx);% + connKinEnergyU(n) + connKinEnergyW(n);% + connPotEnergyU(n) + connPotEnergyU(n);
-%   
+    % Use summed form
+    boundaryEnergyUH(n) = k * boundaryEnergyU(n) + boundaryEnergyUH(idx);
+    boundaryEnergyWH(n) = k * boundaryEnergyW(n) + boundaryEnergyWH(idx);
+    
+    % Total energy (everything included)
+    totTotEnergy(n) = totEnergy(n) - (boundaryEnergyUH(idx) + boundaryEnergyWH(idx));
+   
 
     %% ROC energies
     Mw = length(w);
@@ -860,18 +875,15 @@ for n = 1:lengthSound
     %             plot(rOCPotEnergyW(1:n));
                 pause(0.1)
             else
+                %% plot energies
                 subplot(311)
                 plot([1:length(u), (1:length(w))+length(u)-1], [u; w])
 
                 subplot(312)
                 plot(totTotEnergy(1:n) / totTotEnergy(1) - 1);
-%                 plot(totTotEnergy(1:n))
-                subplot(313)
-                hold off;
-                plot((totEnergy(2:n) - totEnergy(1)));
 
-                hold on;
-                plot(-boundaryEnergyUH(1:n-1)-boundaryEnergyWH(1:n-1));
+                subplot(313)
+                plot(boundaryEnergyUH(1:n-1)+boundaryEnergyWH(1:n-1));
 
             end
         drawnow;
